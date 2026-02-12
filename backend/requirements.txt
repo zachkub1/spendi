@@ -1,0 +1,26 @@
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
+pytest==7.4.4
+httpx==0.26.0
+
+# OAuth & Authentication
+authlib==1.3.0
+itsdangerous==2.1.2
+pyjwt==2.8.0
+cryptography==42.0.0
+
+# Database migrations
+alembic==1.13.1
+
+# Background jobs (for Week 2/3)
+celery==5.3.6
+redis==5.0.1
+
+# Google API client (for Week 2)
+google-api-python-client==2.116.0
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
