@@ -77,7 +77,7 @@ class GmailClient:
             message_id: Gmail message ID
 
         Returns:
-            Dict with keys: id, subject, from, date, body
+            Dict with keys: id, subject, from, date, body, internalDate
         """
         try:
             message = self.service.users().messages().get(
@@ -97,6 +97,7 @@ class GmailClient:
                 'subject': headers.get('Subject', ''),
                 'from': headers.get('From', ''),
                 'date': headers.get('Date', ''),
+                'internalDate': message.get('internalDate'),  # Gmail's reliable timestamp (milliseconds since epoch)
                 'body': body
             }
 

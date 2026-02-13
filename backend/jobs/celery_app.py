@@ -7,7 +7,8 @@ from app.config import settings
 celery_app = Celery(
     "ledgerly",
     broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL
+    backend=settings.REDIS_URL,
+    include=['jobs.tasks']  # Import tasks module so they're registered
 )
 
 celery_app.conf.update(

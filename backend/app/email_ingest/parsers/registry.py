@@ -7,6 +7,7 @@ from .chase import ChaseParser
 from .amex import AmexParser
 from .venmo import VenmoParser
 from .zelle import ZelleParser
+from .discover import DiscoverParser
 
 
 class ParserRegistry:
@@ -17,6 +18,7 @@ class ParserRegistry:
         AmexParser(),
         VenmoParser(),
         ZelleParser(),
+        DiscoverParser(),
     ]
 
     @classmethod
@@ -52,4 +54,7 @@ class ParserRegistry:
             "venmo.com",
             "zellepay.com",
             "notify.zelle.com",
+            "discover.com",
+            "services.discover.com",
+            "discovercard.com",
         ]

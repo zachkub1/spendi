@@ -19,6 +19,21 @@ class ParsedTransactionData:
     confidence_score: float  # 0-100
 
 
+@dataclass
+class ParseResult:
+    """
+    Result of parsing an email.
+
+    status can be:
+    - "transaction": Successfully extracted transaction data
+    - "non_transaction": Email is valid but contains no transaction (marketing, alerts, etc.)
+    - "parse_error": Email should contain transaction but parsing failed
+    """
+    status: str  # "transaction", "non_transaction", "parse_error"
+    data: Optional[ParsedTransactionData] = None
+    reason: Optional[str] = None  # Explanation for non_transaction or parse_error
+
+
 class EmailParser(ABC):
     """Abstract base class for email parsers."""
 
@@ -39,7 +54,7 @@ class EmailParser(ABC):
         pass
 
     @abstractmethod
-    def parse(self, subject: str, body: str) -> ParsedTransactionData:
+    def parse(self, subject: str, body: str) -> ParseResult:
         """
         Extract transaction data from email.
 
@@ -48,10 +63,9 @@ class EmailParser(ABC):
             body: Email body text
 
         Returns:
-            ParsedTransactionData with extracted information
+            ParseResult with status and optional transaction data
 
-        Raises:
-            ValueError: If parsing fails
+        Never raises exceptions - returns ParseResult with status="parse_error" instead
         """
         pass
 

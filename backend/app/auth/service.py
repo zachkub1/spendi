@@ -138,6 +138,8 @@ class AuthService:
         db: Session,
         user_id: str,
         action: AuditLogAction,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
         details: Optional[dict] = None,
@@ -149,6 +151,8 @@ class AuthService:
             db: Database session
             user_id: UUID of the user
             action: Action type from AuditLogAction enum
+            resource_type: Type of resource affected (e.g., "EmailAccount")
+            resource_id: UUID of the affected resource
             ip_address: Client IP address (optional)
             user_agent: Client user agent (optional)
             details: Additional context (optional)
@@ -159,6 +163,8 @@ class AuthService:
         audit_log = AuditLog(
             user_id=user_id,
             action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
             ip_address=ip_address,
             user_agent=user_agent,
             details=details or {},

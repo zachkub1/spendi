@@ -4,7 +4,7 @@
  * Gmail OAuth callback page - handles redirect from Google OAuth for email connection.
  */
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 
@@ -12,7 +12,7 @@ function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  const [hasProcessed, setHasProcessed] = useState(false);
+  const hasProcessedRef = useRef(false);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -23,14 +23,14 @@ function CallbackContent() {
         return;
       }
 
-      // Prevent duplicate calls - check if we've already processed ANY code
-      if (hasProcessed) {
-        console.log('Already processed a code, skipping');
+      // Prevent duplicate calls using ref (persists across renders, doesn't trigger re-render)
+      if (hasProcessedRef.current) {
+        console.log('Already processed this code, skipping duplicate call');
         return;
       }
 
-      // Mark as processed immediately to prevent any duplicate calls
-      setHasProcessed(true);
+      // Mark as processed immediately to prevent React StrictMode double-call
+      hasProcessedRef.current = true;
 
       try {
         console.log('Exchanging OAuth code for tokens...');
@@ -54,12 +54,12 @@ function CallbackContent() {
           setError(`Failed to connect Gmail: ${errorMessage}. Check browser console for details.`);
         }
 
-        // Don't reset hasProcessed on error - we still processed this code
+        // Don't reset hasProcessedRef on error - we still processed this code
       }
     };
 
     handleCallback();
-  }, [searchParams, router, hasProcessed]);
+  }, [searchParams, router]); // Removed hasProcessedRef from deps to prevent loop
 
   if (error) {
     return (
