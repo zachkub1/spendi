@@ -23,6 +23,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Link href="/transactions" className="text-gray-600 hover:text-gray-900 transition-colors">
                   Transactions
                 </Link>
+                <Link href="/insights" className="text-gray-600 hover:text-gray-900 transition-colors">
+                  Insights
+                </Link>
                 <Link href="/email" className="text-gray-600 hover:text-gray-900 transition-colors">
                   Email
                 </Link>

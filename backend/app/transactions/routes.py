@@ -3,7 +3,7 @@ Transaction management routes.
 API endpoints for viewing and managing transactions, payment instruments, and categories.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import func
+from sqlalchemy import func, extract
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -90,6 +90,24 @@ class CategoryUpdateRequest(BaseModel):
 
     class Config:
         use_enum_values = True
+
+
+class MonthlyInsightItem(BaseModel):
+    """Spending totals for a single month."""
+    month: int          # 1–12
+    total_amount: str   # gross amount charged (Decimal as string)
+    reimbursed: str     # total reimbursed (Decimal as string)
+    net: str            # net spending = total_amount − reimbursed
+    count: int          # number of transactions
+
+
+class YearlyInsightItem(BaseModel):
+    """Spending totals for a single year."""
+    year: int
+    total_amount: str
+    reimbursed: str
+    net: str
+    count: int
 
 
 # ========== Payment Instrument Endpoints ==========
@@ -309,6 +327,114 @@ async def get_transaction_summary(
         "categories": categories,
         "total_transactions": total_transactions,
     }
+
+
+# ========== Insights Endpoints ==========
+
+@router.get("/insights/monthly", response_model=List[MonthlyInsightItem])
+async def get_monthly_insights(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    year: int = Query(default=None, description="Year to aggregate (default: current year)"),
+    category: Optional[TransactionCategory] = Query(None, description="Filter by category"),
+    include_demo: bool = Query(True),
+):
+    """
+    Return monthly spending totals for the given year.
+
+    Always returns 12 items (one per month). Months with no transactions return zeros.
+    Amounts are net_amount (gross minus reimbursements) per finance rules.
+    """
+    if year is None:
+        year = datetime.now().year
+
+    query = db.query(
+        extract("month", NormalizedTransaction.transaction_date).label("month"),
+        func.sum(NormalizedTransaction.amount).label("total_amount"),
+        func.sum(NormalizedTransaction.reimbursed_amount).label("reimbursed"),
+        func.sum(NormalizedTransaction.net_amount).label("net"),
+        func.count(NormalizedTransaction.id).label("count"),
+    ).filter(
+        NormalizedTransaction.user_id == current_user.id,
+        extract("year", NormalizedTransaction.transaction_date) == year,
+    )
+
+    query = _apply_demo_filter(query, include_demo)
+
+    if category:
+        query = query.filter(NormalizedTransaction.category == category)
+
+    rows = query.group_by(
+        extract("month", NormalizedTransaction.transaction_date)
+    ).order_by(
+        extract("month", NormalizedTransaction.transaction_date)
+    ).all()
+
+    # Build a dict keyed by month so we can fill zeros for months with no data
+    by_month = {
+        int(row.month): MonthlyInsightItem(
+            month=int(row.month),
+            total_amount=str(row.total_amount or "0.00"),
+            reimbursed=str(row.reimbursed or "0.00"),
+            net=str(row.net or "0.00"),
+            count=row.count,
+        )
+        for row in rows
+    }
+
+    zero = MonthlyInsightItem(month=0, total_amount="0.00", reimbursed="0.00", net="0.00", count=0)
+    result = [by_month.get(m, MonthlyInsightItem(**{**zero.__dict__, "month": m})) for m in range(1, 13)]
+
+    logger.debug(f"[INSIGHTS] Monthly {year}: {sum(r.count for r in result)} transactions across {sum(1 for r in result if r.count > 0)} months")
+    return result
+
+
+@router.get("/insights/yearly", response_model=List[YearlyInsightItem])
+async def get_yearly_insights(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    category: Optional[TransactionCategory] = Query(None, description="Filter by category"),
+    include_demo: bool = Query(True),
+):
+    """
+    Return yearly spending totals across all years with transactions.
+
+    Results are ordered chronologically (earliest year first).
+    """
+    query = db.query(
+        extract("year", NormalizedTransaction.transaction_date).label("year"),
+        func.sum(NormalizedTransaction.amount).label("total_amount"),
+        func.sum(NormalizedTransaction.reimbursed_amount).label("reimbursed"),
+        func.sum(NormalizedTransaction.net_amount).label("net"),
+        func.count(NormalizedTransaction.id).label("count"),
+    ).filter(
+        NormalizedTransaction.user_id == current_user.id,
+    )
+
+    query = _apply_demo_filter(query, include_demo)
+
+    if category:
+        query = query.filter(NormalizedTransaction.category == category)
+
+    rows = query.group_by(
+        extract("year", NormalizedTransaction.transaction_date)
+    ).order_by(
+        extract("year", NormalizedTransaction.transaction_date)
+    ).all()
+
+    result = [
+        YearlyInsightItem(
+            year=int(row.year),
+            total_amount=str(row.total_amount or "0.00"),
+            reimbursed=str(row.reimbursed or "0.00"),
+            net=str(row.net or "0.00"),
+            count=row.count,
+        )
+        for row in rows
+    ]
+
+    logger.debug(f"[INSIGHTS] Yearly: {len(result)} year(s) with data")
+    return result
 
 
 @router.get("/{transaction_id}", response_model=TransactionResponse)
