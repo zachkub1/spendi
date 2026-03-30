@@ -12,7 +12,7 @@ class AmexParser(EmailParser):
 
     provider = "amex"
 
-    SENDER_PATTERN = r"@americanexpress\.com$|@aexp\.com$"
+    SENDER_PATTERN = r"@(?:[\w-]+\.)?americanexpress\.com$|@aexp\.com$"
     SUBJECT_PATTERN = r"Charge of \$[\d,]+\.\d{2}"
     AMOUNT_PATTERN = r"Charge of \$(\d{1,3}(?:,\d{3})*\.\d{2})"
     MERCHANT_PATTERN = r"at (.+?) has been approved"

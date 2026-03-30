@@ -5,6 +5,7 @@ import logging
 from app.config import settings
 from app.auth.routes import router as auth_router
 from app.email_ingest.routes import router as email_router
+from app.transactions.routes import router as transactions_router
 
 # Configure logging
 logging.basicConfig(
@@ -68,3 +69,4 @@ async def root():
 # Include routers
 app.include_router(auth_router)
 app.include_router(email_router)
+app.include_router(transactions_router)

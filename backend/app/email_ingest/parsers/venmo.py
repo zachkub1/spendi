@@ -2,7 +2,7 @@
 Venmo transaction email parser.
 """
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from .base import EmailParser, ParsedTransactionData, ParseResult
 
@@ -54,7 +54,7 @@ class VenmoParser(EmailParser):
 
             # Venmo emails typically don't include the exact date in parseable format
             # Use current date as approximation
-            transaction_date = datetime.utcnow()
+            transaction_date = datetime.now(timezone.utc)
 
             transaction_data = ParsedTransactionData(
                 merchant_name=merchant,

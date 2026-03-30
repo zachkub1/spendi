@@ -8,6 +8,9 @@
 import { ProtectedRoute } from '@/components/auth/protected-route';
 import { useAuth } from '@/lib/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -28,7 +31,9 @@ export default function DashboardPage() {
               <p className="text-gray-600">
                 Connect your Gmail account to automatically ingest financial transactions.
               </p>
-              <p className="text-sm text-gray-500 mt-2">Coming in Week 2</p>
+              <Link href="/email" passHref legacyBehavior>
+                <Button>Email</Button>
+              </Link>
             </CardContent>
           </Card>
 
@@ -40,7 +45,9 @@ export default function DashboardPage() {
               <p className="text-gray-600">
                 View all your parsed transactions from email receipts.
               </p>
-              <p className="text-sm text-gray-500 mt-2">Coming in Week 3</p>
+              <Link href="/transactions" passHref legacyBehavior>
+                <Button>Transactions</Button>
+              </Link>
             </CardContent>
           </Card>
 
@@ -52,7 +59,9 @@ export default function DashboardPage() {
               <p className="text-gray-600">
                 Get smart spending insights and rewards optimization.
               </p>
-              <p className="text-sm text-gray-500 mt-2">Coming in Phase 2</p>
+              <Link href="/insights" passHref legacyBehavior>
+                <Button>Insights</Button>
+              </Link>
             </CardContent>
           </Card>
         </div>

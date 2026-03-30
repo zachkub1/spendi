@@ -10,6 +10,7 @@ import { ConnectGmailButton } from '@/components/email/connect-gmail-button';
 import { EmailAccountCard } from '@/components/email/email-account-card';
 import { SyncButton } from '@/components/email/sync-button';
 import { TransactionList } from '@/components/email/transaction-list';
+import { DemoSyncButton } from '@/components/email/demo-sync-button';
 import type { EmailAccount } from '@shared/types/email-account';
 import { apiClient } from '@/lib/api-client';
 import { Separator } from '@/components/ui/separator';
@@ -17,6 +18,8 @@ import { Separator } from '@/components/ui/separator';
 export default function EmailPage() {
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [txRefreshTrigger, setTxRefreshTrigger] = useState(0);
+  const [showDemoData, setShowDemoData] = useState(true);
 
   const fetchAccounts = async () => {
     try {
@@ -37,6 +40,11 @@ export default function EmailPage() {
     fetchAccounts();
   };
 
+  const handleSyncComplete = () => {
+    fetchAccounts();
+    setTxRefreshTrigger(n => n + 1);
+  };
+
   return (
     <ProtectedRoute>
       <div className="container mx-auto px-4 py-8">
@@ -48,14 +56,41 @@ export default function EmailPage() {
             <p className="mt-2 text-gray-600">Loading email accounts...</p>
           </div>
         ) : accounts.length === 0 ? (
-          <div className="text-center py-12">
-            <h2 className="text-xl font-semibold mb-4">No Email Accounts Connected</h2>
-            <p className="text-gray-600 mb-6">
-              Connect your Gmail account to automatically ingest financial transactions from email.
-            </p>
-            <ConnectGmailButton onConnected={fetchAccounts} />
+          /* ── No accounts connected ─────────────────────────────────────── */
+          <div className="space-y-8">
+            <div className="text-center py-12">
+              <h2 className="text-xl font-semibold mb-4">No Email Accounts Connected</h2>
+              <p className="text-gray-600 mb-6">
+                Connect your Gmail account to automatically ingest financial transactions from email.
+              </p>
+              <ConnectGmailButton onConnected={fetchAccounts} />
+            </div>
+
+            {/* Demo section visible even without a connected account */}
+            <Separator />
+            <div className="rounded-lg border border-dashed border-gray-300 p-6 bg-gray-50">
+              <h2 className="text-lg font-semibold mb-1">Try with Demo Data</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                No Gmail account? Load 9 realistic mock transactions to explore the UI.
+              </p>
+              <DemoSyncButton onSyncComplete={() => setTxRefreshTrigger(n => n + 1)} />
+            </div>
+
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold">Parsed Transactions</h3>
+                <button
+                  onClick={() => setShowDemoData(v => !v)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-dashed border-gray-400 text-gray-500 hover:border-gray-600 hover:text-gray-700 transition-colors"
+                >
+                  {showDemoData ? 'Hide Demo Data' : 'Show Demo Data'}
+                </button>
+              </div>
+              <TransactionList refreshTrigger={txRefreshTrigger} includeDemoData={showDemoData} />
+            </div>
           </div>
         ) : (
+          /* ── Accounts connected ────────────────────────────────────────── */
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Connected Accounts</h2>
@@ -71,7 +106,7 @@ export default function EmailPage() {
                   />
                   <SyncButton
                     accountId={account.id}
-                    onSyncComplete={fetchAccounts}
+                    onSyncComplete={handleSyncComplete}
                   />
                 </div>
               ))}
@@ -79,9 +114,21 @@ export default function EmailPage() {
 
             <Separator className="my-8" />
 
-            <div className="mt-8">
-              <TransactionList />
+            {/* Demo data section — always available for testing */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Parsed Transactions</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowDemoData(v => !v)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-dashed border-gray-400 text-gray-500 hover:border-gray-600 hover:text-gray-700 transition-colors"
+                >
+                  {showDemoData ? 'Hide Demo Data' : 'Show Demo Data'}
+                </button>
+                <DemoSyncButton onSyncComplete={() => setTxRefreshTrigger(n => n + 1)} />
+              </div>
             </div>
+
+            <TransactionList refreshTrigger={txRefreshTrigger} includeDemoData={showDemoData} />
           </div>
         )}
       </div>

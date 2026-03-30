@@ -4,7 +4,7 @@ API endpoints for connecting/disconnecting Gmail accounts.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.db.session import get_db
@@ -14,7 +14,6 @@ from app.email_ingest.service import EmailAccountService
 from app.email_ingest.gmail_client import GmailClient
 from app.config import settings
 from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
 from pydantic import BaseModel
 import logging
 
@@ -217,7 +216,7 @@ async def connect_gmail(
             )
 
         # Calculate token expiration
-        expires_at = datetime.utcnow() + timedelta(seconds=credentials.expiry.timestamp() - datetime.utcnow().timestamp())
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=credentials.expiry.timestamp() - datetime.now(timezone.utc).timestamp())
 
         # Create email account with encrypted tokens
         email_account = EmailAccountService.create_email_account(
@@ -242,6 +241,8 @@ async def connect_gmail(
             }
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to connect Gmail: {e}")
         raise HTTPException(
@@ -255,8 +256,15 @@ async def list_email_accounts(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List user's connected email accounts."""
-    accounts = db.query(EmailAccount).filter_by(user_id=current_user.id).all()
+    """List user's connected email accounts (excludes demo accounts)."""
+    accounts = (
+        db.query(EmailAccount)
+        .filter(
+            EmailAccount.user_id == current_user.id,
+            EmailAccount.provider != "demo"
+        )
+        .all()
+    )
 
     return {
         "accounts": [
@@ -343,6 +351,8 @@ async def trigger_sync(
     Manually trigger email sync for an account.
     Runs in background task (Celery).
     """
+    logger.info(f"[SYNC_API] User {current_user.id} requesting sync for account {account_id}")
+
     # Verify ownership
     email_account = db.query(EmailAccount).filter_by(
         id=account_id,
@@ -350,60 +360,326 @@ async def trigger_sync(
     ).first()
 
     if not email_account:
+        logger.warning(f"[SYNC_API] Account {account_id} not found for user {current_user.id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Email account not found"
         )
 
+    logger.info(f"[SYNC_API] Account found: {email_account.email_address}, sync_status={email_account.sync_status}")
+
     if email_account.sync_status == "in_progress":
+        logger.warning(f"[SYNC_API] Sync already in progress for {account_id}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Sync already in progress"
         )
 
-    # Enqueue Celery task
-    from jobs.tasks import sync_email_account_task
-    task = sync_email_account_task.delay(str(email_account.id))
+    # Verify OAuth tokens exist
+    if not email_account.oauth_access_token or not email_account.oauth_refresh_token:
+        logger.error(f"[SYNC_API] Missing OAuth tokens for account {account_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email account is missing OAuth tokens. Please reconnect your Gmail account."
+        )
 
-    return {
-        "message": "Sync started",
-        "task_id": task.id
-    }
+    # Enqueue Celery task
+    try:
+        logger.info(f"[SYNC_API] Importing Celery task...")
+        from jobs.tasks import sync_email_account_task
+
+        logger.info(f"[SYNC_API] Enqueuing sync task for {account_id}...")
+        task = sync_email_account_task.delay(str(email_account.id))
+
+        logger.info(f"[SYNC_API] Task enqueued successfully: task_id={task.id}")
+
+        return {
+            "message": "Sync started",
+            "task_id": task.id,
+            "account_id": str(email_account.id),
+            "email_address": email_account.email_address
+        }
+    except ImportError as e:
+        logger.error(f"[SYNC_API] Failed to import Celery task: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Background job system not available. Please check Celery worker is running."
+        )
+    except Exception as e:
+        logger.error(f"[SYNC_API] Failed to enqueue sync task: {type(e).__name__}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start sync: {str(e)}"
+        )
 
 
 @router.get("/transactions")
 async def list_parsed_transactions(
     account_id: Optional[str] = None,
-    limit: int = 50,
+    limit: int = 20,
+    offset: int = 0,
+    include_demo: bool = True,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List parsed transactions for user."""
+    """List parsed transactions for user with optional category from normalized record."""
     from app.db.models import ParsedTransaction
+    from sqlalchemy.orm import joinedload
 
-    query = db.query(ParsedTransaction).join(EmailAccount).filter(
-        EmailAccount.user_id == current_user.id
+    query = (
+        db.query(ParsedTransaction)
+        .options(joinedload(ParsedTransaction.normalized_transaction))
+        .join(EmailAccount)
+        .filter(EmailAccount.user_id == current_user.id)
     )
+
+    if not include_demo:
+        query = query.filter(EmailAccount.provider != "demo")
 
     if account_id:
         query = query.filter(ParsedTransaction.email_account_id == account_id)
 
-    transactions = query.order_by(
-        ParsedTransaction.transaction_date.desc()
-    ).limit(limit).all()
+    total = query.count()
+    transactions = (
+        query
+        .order_by(ParsedTransaction.transaction_date.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
     return {
         "transactions": [
             {
                 "id": str(t.id),
                 "merchant_name": t.merchant_name,
+                "merchant_normalized": (
+                    t.normalized_transaction.merchant_normalized
+                    if t.normalized_transaction else None
+                ),
                 "amount": str(t.amount),
                 "transaction_date": t.transaction_date.isoformat(),
                 "card_last_four": t.card_last_four,
                 "transaction_type": t.transaction_type,
                 "confidence_score": float(t.confidence_score),
+                "category": (
+                    t.normalized_transaction.category
+                    if t.normalized_transaction else None
+                ),
                 "created_at": t.created_at.isoformat()
             }
             for t in transactions
-        ]
+        ],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.post("/demo-sync")
+async def demo_sync(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Inject demo email data to test the parsing pipeline without real Gmail access.
+
+    - Finds or creates a demo EmailAccount for the user.
+    - Runs each mock email through the real parser registry.
+    - Stores ParsedTransactions (and NormalizedTransactions if payment instruments exist).
+    - Idempotent: re-running skips already-processed emails.
+    """
+    from app.email_ingest.demo_data import DEMO_EMAILS
+    from app.email_ingest.parsers.registry import ParserRegistry
+    from app.db.models import (
+        RawEmail, ParsedTransaction, NormalizedTransaction,
+        PaymentInstrument, PaymentInstrumentType, PaymentInstrumentStatus,
+    )
+    from app.transactions.matching_service import PaymentInstrumentMatchingService
+
+    # ── 1. Find or create the demo EmailAccount ───────────────────────────────
+    demo_account = db.query(EmailAccount).filter(
+        EmailAccount.user_id == current_user.id,
+        EmailAccount.provider == "demo"
+    ).first()
+
+    if not demo_account:
+        demo_account = EmailAccount(
+            user_id=current_user.id,
+            provider="demo",
+            email_address="demo@ledgerly.demo",
+            sync_enabled=False,
+            sync_status="success",
+        )
+        db.add(demo_account)
+        db.flush()
+
+    # ── 2. Auto-create demo payment instruments (idempotent) ─────────────────
+    # These match the card numbers embedded in the demo email bodies so that
+    # PaymentInstrumentMatchingService can link ParsedTransactions → NormalizedTransactions.
+    _DEMO_INSTRUMENTS = [
+        dict(type=PaymentInstrumentType.CREDIT_CARD, issuer="Chase",
+             display_name="Demo Chase Card", network="Visa",
+             last_four_digits="4242", account_identifier=None),
+        dict(type=PaymentInstrumentType.CREDIT_CARD, issuer="American Express",
+             display_name="Demo Amex Card", network="Amex",
+             last_four_digits="9876", account_identifier=None),
+        dict(type=PaymentInstrumentType.CREDIT_CARD, issuer="Discover",
+             display_name="Demo Discover Card", network="Discover",
+             last_four_digits="5555", account_identifier=None),
+        dict(type=PaymentInstrumentType.P2P_ACCOUNT, issuer="Venmo/Zelle",
+             display_name="Demo P2P Account", network=None,
+             last_four_digits=None, account_identifier="demo_p2p"),
+    ]
+    for inst_data in _DEMO_INSTRUMENTS:
+        exists = db.query(PaymentInstrument).filter(
+            PaymentInstrument.user_id == current_user.id,
+            (PaymentInstrument.last_four_digits == inst_data["last_four_digits"])
+            if inst_data["last_four_digits"]
+            else (PaymentInstrument.account_identifier == inst_data["account_identifier"]),
+        ).first()
+        if not exists:
+            db.add(PaymentInstrument(
+                user_id=current_user.id,
+                status=PaymentInstrumentStatus.ACTIVE,
+                **inst_data,
+            ))
+    db.flush()
+
+    parsed_count = 0
+    non_transaction_count = 0
+    already_exists_count = 0
+
+    # ── 3. Process each demo email ────────────────────────────────────────────
+    for email in DEMO_EMAILS:
+        existing = db.query(RawEmail).filter_by(message_id=email["message_id"]).first()
+
+        if existing and existing.parsing_status in ("success", "non_transaction"):
+            already_exists_count += 1
+            continue
+
+        if existing:
+            # Reset a previously-failed demo email for retry
+            raw_email = existing
+            raw_email.parsing_status = "pending"
+            raw_email.error_message = None
+            raw_email.parser_used = None
+            db.flush()
+        else:
+            raw_email = RawEmail(
+                email_account_id=demo_account.id,
+                message_id=email["message_id"],
+                subject=email["subject"],
+                sender=email["from"],
+                received_at=email["received_at"],
+                parsing_status="pending",
+            )
+            db.add(raw_email)
+            db.flush()
+
+        # Non-parseable emails (marketing, statements) — mark directly
+        if not email.get("parseable", True):
+            raw_email.parsing_status = "non_transaction"
+            raw_email.error_message = "non_transactional_email"
+            non_transaction_count += 1
+            continue
+
+        # Run through real parser
+        parser = ParserRegistry.get_parser(email["from"], email["subject"])
+        if not parser:
+            raw_email.parsing_status = "failed"
+            raw_email.error_message = "no_parser_matched"
+            logger.warning(f"[DEMO] No parser matched for {email['message_id']}")
+            continue
+
+        parse_result = parser.parse(email["subject"], email["body"])
+        raw_email.parser_used = parser.provider
+
+        if parse_result.status == "transaction":
+            parsed_txn = ParsedTransaction(
+                raw_email_id=raw_email.id,
+                email_account_id=demo_account.id,
+                merchant_name=parse_result.data.merchant_name,
+                amount=parse_result.data.amount,
+                currency="USD",
+                transaction_date=parse_result.data.transaction_date,
+                card_last_four=parse_result.data.card_last_four,
+                transaction_type=parse_result.data.transaction_type,
+                confidence_score=parse_result.data.confidence_score,
+                parser_version=parser.get_version(),
+            )
+            db.add(parsed_txn)
+            db.flush()
+
+            raw_email.parsing_status = "success"
+            parsed_count += 1
+            logger.debug(
+                f"[DEMO] Parsed: {parse_result.data.merchant_name} "
+                f"${parse_result.data.amount} via {parser.provider}"
+            )
+
+            # Attempt normalization (non-fatal — requires payment instruments)
+            try:
+                normalized = PaymentInstrumentMatchingService.match_and_normalize(
+                    db=db,
+                    parsed_transaction=parsed_txn,
+                    user_id=str(current_user.id),
+                )
+                if normalized:
+                    logger.debug(
+                        f"[DEMO] Normalized: {normalized.merchant_normalized} ({normalized.category})"
+                    )
+            except Exception as norm_err:
+                logger.warning(f"[DEMO] Normalization skipped for {parsed_txn.merchant_name}: {norm_err}")
+
+        elif parse_result.status == "non_transaction":
+            raw_email.parsing_status = "non_transaction"
+            raw_email.error_message = parse_result.reason
+            non_transaction_count += 1
+        else:
+            raw_email.parsing_status = "failed"
+            raw_email.error_message = parse_result.reason
+
+    # ── 4. Retroactively normalize any ParsedTransactions that were created
+    #       before payment instruments existed (e.g. on a previous demo-sync run).
+    unmatched = (
+        db.query(ParsedTransaction)
+        .outerjoin(NormalizedTransaction, NormalizedTransaction.parsed_transaction_id == ParsedTransaction.id)
+        .filter(
+            ParsedTransaction.email_account_id == demo_account.id,
+            NormalizedTransaction.id.is_(None),
+        )
+        .all()
+    )
+    retro_count = 0
+    for pt in unmatched:
+        try:
+            norm = PaymentInstrumentMatchingService.match_and_normalize(
+                db=db,
+                parsed_transaction=pt,
+                user_id=str(current_user.id),
+            )
+            if norm:
+                retro_count += 1
+        except Exception as retro_err:
+            logger.warning(f"[DEMO] Retro-normalization failed for {pt.merchant_name}: {retro_err}")
+
+    if retro_count:
+        logger.info(f"[DEMO] Retroactively normalized {retro_count} previously-unmatched transactions")
+
+    demo_account.last_sync_at = datetime.now(timezone.utc)
+    demo_account.sync_status = "success"
+    db.commit()
+
+    logger.info(
+        f"[DEMO] Sync complete for user {current_user.id}: "
+        f"{parsed_count} parsed, {non_transaction_count} non-transaction, "
+        f"{already_exists_count} already existed"
+    )
+
+    return {
+        "message": "Demo sync complete",
+        "parsed": parsed_count,
+        "non_transaction": non_transaction_count,
+        "already_exists": already_exists_count,
     }
