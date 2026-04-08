@@ -33,6 +33,8 @@ All transformations must be traceable
 🔁 Iterative Error Memory System (VERY IMPORTANT)
 
 This project must evolve based on past mistakes.
+Update docs folder respective file on requirements or bottlenecks as project evolves
+Modify requirements as new requirements are presented
 
 Rule:
 
