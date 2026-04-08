@@ -31,6 +31,15 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 # ========== Pydantic Models ==========
 
+class PaymentInstrumentUpdate(BaseModel):
+    """Request model for updating a payment instrument."""
+    display_name: Optional[str] = None
+    last_four_digits: Optional[str] = Field(None, min_length=4, max_length=4)
+
+    class Config:
+        use_enum_values = True
+
+
 class PaymentInstrumentCreate(BaseModel):
     """Request model for creating a payment instrument."""
     type: PaymentInstrumentType
@@ -221,18 +230,110 @@ async def delete_payment_instrument(
     return None
 
 
+@router.patch("/payment-instruments/{instrument_id}/reactivate", response_model=PaymentInstrumentResponse)
+async def reactivate_payment_instrument(
+    instrument_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Reactivate a previously deactivated payment instrument.
+
+    Sets status back to ACTIVE. Ownership is verified before any mutation.
+    """
+    instrument = db.query(PaymentInstrument).filter(
+        PaymentInstrument.id == instrument_id,
+        PaymentInstrument.user_id == current_user.id
+    ).first()
+
+    if not instrument:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment instrument not found"
+        )
+
+    if instrument.status == PaymentInstrumentStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Payment instrument is already active"
+        )
+
+    instrument.status = PaymentInstrumentStatus.ACTIVE
+    db.commit()
+    db.refresh(instrument)
+
+    logger.info(
+        f"[PAYMENT_INSTRUMENT] Reactivated: {instrument.display_name} (id={instrument.id}) "
+        f"for user {current_user.id}"
+    )
+
+    return instrument
+
+
+@router.patch("/payment-instruments/{instrument_id}", response_model=PaymentInstrumentResponse)
+async def update_payment_instrument(
+    instrument_id: UUID,
+    update_data: PaymentInstrumentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update display_name and/or last_four_digits of a payment instrument.
+
+    Ownership is verified before any mutation. Duplicate last4 for the same
+    user (excluding the instrument being edited) is rejected with 409.
+    """
+    instrument = db.query(PaymentInstrument).filter(
+        PaymentInstrument.id == instrument_id,
+        PaymentInstrument.user_id == current_user.id
+    ).first()
+
+    if not instrument:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment instrument not found"
+        )
+
+    # Validate new last4 doesn't collide with another instrument for this user
+    if update_data.last_four_digits and update_data.last_four_digits != instrument.last_four_digits:
+        conflict = db.query(PaymentInstrument).filter(
+            PaymentInstrument.user_id == current_user.id,
+            PaymentInstrument.id != instrument_id,
+            PaymentInstrument.last_four_digits == update_data.last_four_digits,
+            PaymentInstrument.status == PaymentInstrumentStatus.ACTIVE
+        ).first()
+        if conflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Another active card with these last 4 digits already exists"
+            )
+
+    if update_data.display_name is not None:
+        instrument.display_name = update_data.display_name
+    if update_data.last_four_digits is not None:
+        instrument.last_four_digits = update_data.last_four_digits
+
+    db.commit()
+    db.refresh(instrument)
+
+    logger.info(
+        f"[PAYMENT_INSTRUMENT] Updated: {instrument.display_name} (id={instrument.id}) "
+        f"for user {current_user.id}"
+    )
+
+    return instrument
+
+
 # ========== Transaction Endpoints ==========
 
-def _apply_demo_filter(query, include_demo: bool):
+def _exclude_demo(query):
     """Join through ParsedTransaction → EmailAccount to exclude demo-account rows."""
-    if not include_demo:
-        query = (
-            query
-            .join(ParsedTransaction, ParsedTransaction.id == NormalizedTransaction.parsed_transaction_id)
-            .join(EmailAccount, EmailAccount.id == ParsedTransaction.email_account_id)
-            .filter(EmailAccount.provider != "demo")
-        )
-    return query
+    return (
+        query
+        .join(ParsedTransaction, ParsedTransaction.id == NormalizedTransaction.parsed_transaction_id)
+        .join(EmailAccount, EmailAccount.id == ParsedTransaction.email_account_id)
+        .filter(EmailAccount.provider != "demo")
+    )
 
 
 @router.get("/", response_model=List[TransactionResponse])
@@ -243,21 +344,20 @@ async def list_transactions(
     payment_instrument_id: Optional[UUID] = Query(None, description="Filter by payment instrument"),
     start_date: Optional[datetime] = Query(None, description="Filter by start date (inclusive)"),
     end_date: Optional[datetime] = Query(None, description="Filter by end date (inclusive)"),
-    include_demo: bool = Query(True, description="Include demo-account transactions"),
     limit: int = Query(50, ge=1, le=200, description="Maximum results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip")
 ):
     """
     List normalized transactions for the current user.
 
-    Supports filtering by category, payment instrument, date range, and demo visibility.
+    Supports filtering by category, payment instrument, and date range.
     Results are paginated and sorted by transaction date (most recent first).
     """
     query = db.query(NormalizedTransaction).filter(
         NormalizedTransaction.user_id == current_user.id
     )
 
-    query = _apply_demo_filter(query, include_demo)
+    query = _exclude_demo(query)
 
     # Apply filters
     if category:
@@ -287,7 +387,6 @@ async def get_transaction_summary(
     current_user: User = Depends(get_current_user),
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
-    include_demo: bool = Query(True),
 ):
     """
     Return per-category aggregates (count + total net_amount) for the current user.
@@ -299,7 +398,7 @@ async def get_transaction_summary(
         func.sum(NormalizedTransaction.net_amount).label("total_amount"),
     ).filter(NormalizedTransaction.user_id == current_user.id)
 
-    query = _apply_demo_filter(query, include_demo)
+    query = _exclude_demo(query)
 
     if start_date:
         query = query.filter(NormalizedTransaction.transaction_date >= start_date)
@@ -337,7 +436,6 @@ async def get_monthly_insights(
     current_user: User = Depends(get_current_user),
     year: int = Query(default=None, description="Year to aggregate (default: current year)"),
     category: Optional[TransactionCategory] = Query(None, description="Filter by category"),
-    include_demo: bool = Query(True),
 ):
     """
     Return monthly spending totals for the given year.
@@ -359,7 +457,7 @@ async def get_monthly_insights(
         extract("year", NormalizedTransaction.transaction_date) == year,
     )
 
-    query = _apply_demo_filter(query, include_demo)
+    query = _exclude_demo(query)
 
     if category:
         query = query.filter(NormalizedTransaction.category == category)
@@ -394,7 +492,6 @@ async def get_yearly_insights(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     category: Optional[TransactionCategory] = Query(None, description="Filter by category"),
-    include_demo: bool = Query(True),
 ):
     """
     Return yearly spending totals across all years with transactions.
@@ -411,7 +508,7 @@ async def get_yearly_insights(
         NormalizedTransaction.user_id == current_user.id,
     )
 
-    query = _apply_demo_filter(query, include_demo)
+    query = _exclude_demo(query)
 
     if category:
         query = query.filter(NormalizedTransaction.category == category)

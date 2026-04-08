@@ -6,26 +6,7 @@ import { apiClient } from '@/lib/api-client';
 import { SpendingChart } from '@/components/insights/spending-chart';
 import { ReimbursementChart } from '@/components/insights/reimbursement-chart';
 import type { MonthlyInsightItem, YearlyInsightItem, TransactionCategory } from '@shared/types/transaction';
-
-// ─── Category metadata (mirrors transactions/page.tsx) ────────────────────────
-
-const CATEGORY_META: Record<string, { label: string; icon: string; idle: string }> = {
-  dining:         { label: 'Dining',         icon: '🍽️', idle: 'bg-orange-50 text-orange-800 border-orange-200 hover:bg-orange-100' },
-  groceries:      { label: 'Groceries',      icon: '🛒', idle: 'bg-green-50 text-green-800 border-green-200 hover:bg-green-100' },
-  gas:            { label: 'Gas',            icon: '⛽', idle: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' },
-  travel:         { label: 'Travel',         icon: '✈️', idle: 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100' },
-  shopping:       { label: 'Shopping',       icon: '🛍️', idle: 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100' },
-  entertainment:  { label: 'Entertainment',  icon: '🎬', idle: 'bg-pink-50 text-pink-800 border-pink-200 hover:bg-pink-100' },
-  utilities:      { label: 'Utilities',      icon: '💡', idle: 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100' },
-  healthcare:     { label: 'Healthcare',     icon: '🏥', idle: 'bg-red-50 text-red-800 border-red-200 hover:bg-red-100' },
-  transportation: { label: 'Transportation', icon: '🚗', idle: 'bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100' },
-  personal_care:  { label: 'Personal Care',  icon: '💅', idle: 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100' },
-  home:           { label: 'Home',           icon: '🏠', idle: 'bg-teal-50 text-teal-800 border-teal-200 hover:bg-teal-100' },
-  education:      { label: 'Education',      icon: '📚', idle: 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100' },
-  transfer:       { label: 'Transfer',       icon: '💸', idle: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100' },
-  payment:        { label: 'Payment',        icon: '💳', idle: 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-zinc-100' },
-  other:          { label: 'Other',          icon: '📌', idle: 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100' },
-};
+import { CATEGORY_META, getCategoryMeta } from '@/lib/category-meta';
 
 const ACTIVE_PILL = 'bg-gray-900 text-white border-gray-900';
 const ALL_CATEGORY_KEYS = Object.keys(CATEGORY_META) as TransactionCategory[];
@@ -236,11 +217,7 @@ export default function InsightsPage() {
             </h2>
             <div className="flex flex-wrap gap-2">
               {summaryData.categories.map(({ category: cat, count, total_amount }) => {
-                const meta = CATEGORY_META[cat] ?? {
-                  label: cat.replace(/_/g, ' '),
-                  icon: '📌',
-                  idle: 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100',
-                };
+                const meta = getCategoryMeta(cat);
                 const isActive = category === cat;
                 return (
                   <button

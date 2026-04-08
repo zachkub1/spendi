@@ -6,13 +6,15 @@ from celery import Celery
 from celery.schedules import crontab
 import logging
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 # Initialize Celery app
 celery_app = Celery(
     'ledgerly',
-    broker='redis://localhost:6379/0',
-    backend='redis://localhost:6379/0',
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
     include=['app.jobs.tasks']  # Import task modules
 )
 

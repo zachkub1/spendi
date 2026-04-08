@@ -274,7 +274,9 @@ class EmailSyncService:
                             card_last_four=parse_result.data.card_last_four,
                             transaction_type=parse_result.data.transaction_type,
                             confidence_score=parse_result.data.confidence_score,
-                            parser_version=parser.get_version()
+                            parser_version=parser.get_version(),
+                            p2p_transaction_id=parse_result.data.p2p_transaction_id,
+                            p2p_source=parse_result.data.p2p_source,
                         )
                         db.add(parsed_txn)
                         db.flush()  # Flush to get parsed_txn.id for matching

@@ -39,3 +39,5 @@ Thumbs.db
 *.pid
 *.seed
 *.log
+
+demo.txt

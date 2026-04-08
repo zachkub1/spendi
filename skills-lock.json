@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skills": {
+    "code-review": {
+      "source": "anthropics/knowledge-work-plugins",
+      "sourceType": "github",
+      "computedHash": "919719020590499db120437b53defa7dcb05e138aa5ce9e55034b88dbad7fff8"
+    },
+    "create-pr": {
+      "source": "marcelorodrigo/agent-skills",
+      "sourceType": "github",
+      "computedHash": "ea544fafe229b0f517fd5b5f06166290edb1dd237de2aedf014f6b3b38fda9e4"
+    },
+    "gh-fix-ci": {
+      "source": "tech-leads-club/agent-skills",
+      "sourceType": "github",
+      "computedHash": "7ae6c73cf7d62b6d51783d838d1f00f011330a3e446ed79caaf8407d0d88e5ee"
+    },
+    "security-best-practices": {
+      "source": "openai/skills",
+      "sourceType": "github",
+      "computedHash": "c27616fb4e27999605b90b261dc729784420c8d77bd1a98748384ffaa5b35704"
+    }
+  }
+}

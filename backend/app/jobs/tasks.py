@@ -9,10 +9,23 @@ from app.jobs.worker import celery_app
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task(bind=True, name='jobs.tasks.sync_email_account_task')
+# Transient errors that are worth retrying (network blips, rate limits, token refresh races).
+# Permanent failures (bad data, missing records) should not consume retries.
+_NON_RETRYABLE_PATTERNS = [
+    "not found",
+    "invalid",
+    "unauthorized",
+    "unconverted data remains",  # malformed email date headers
+    "parse error",
+    "no parser found",
+]
+
+
+@celery_app.task(bind=True, name='app.jobs.tasks.sync_email_account_task', max_retries=3)
 def sync_email_account_task(self: Task, account_id: str):
     """
     Sync a single email account (manually triggered or scheduled).
+    Retries up to 3 times on transient failures with exponential backoff.
 
     Args:
         account_id: UUID of EmailAccount to sync
@@ -31,7 +44,6 @@ def sync_email_account_task(self: Task, account_id: str):
     email_account = None
 
     try:
-        # Get email account
         email_account = db.query(EmailAccount).filter_by(id=account_id).first()
         if not email_account:
             logger.error(f"[CELERY] Email account {account_id} not found")
@@ -39,10 +51,9 @@ def sync_email_account_task(self: Task, account_id: str):
 
         logger.info(f"[CELERY] Syncing {email_account.email_address}...")
 
-        # Run sync
         result = EmailSyncService.sync_email_account(db, email_account)
 
-        # Log audit event (non-fatal - don't crash task if audit logging fails)
+        # Audit log — non-fatal (sync must not fail because of logging)
         try:
             AuthService.create_audit_log(
                 db=db,
@@ -50,7 +61,7 @@ def sync_email_account_task(self: Task, account_id: str):
                 action=AuditLogAction.EMAIL_ACCOUNT_SYNC_COMPLETED,
                 resource_type="EmailAccount",
                 resource_id=account_id,
-                details=result
+                details=result,
             )
         except Exception as audit_error:
             logger.warning(f"[CELERY] Audit logging failed (non-fatal): {audit_error}")
@@ -58,15 +69,14 @@ def sync_email_account_task(self: Task, account_id: str):
         logger.info(f"[CELERY] ✅ Sync completed: {result}")
         return result
 
-    except Exception as e:
-        logger.error(f"[CELERY] ❌ Sync failed: {type(e).__name__}: {e}", exc_info=True)
+    except Exception as exc:
+        logger.error(f"[CELERY] ❌ Sync failed: {type(exc).__name__}: {exc}", exc_info=True)
 
-        # Update sync status to error
         if email_account:
             email_account.sync_status = "error"
             db.commit()
 
-        # Log audit event (non-fatal)
+        # Audit log failure — non-fatal
         if email_account:
             try:
                 AuthService.create_audit_log(
@@ -75,19 +85,30 @@ def sync_email_account_task(self: Task, account_id: str):
                     action=AuditLogAction.EMAIL_ACCOUNT_SYNC_FAILED,
                     resource_type="EmailAccount",
                     resource_id=account_id,
-                    details={"error": str(e)}
+                    details={"error": str(exc)},
                 )
             except Exception as audit_error:
                 logger.warning(f"[CELERY] Audit logging failed (non-fatal): {audit_error}")
 
-        return {"status": "error", "message": str(e)}
+        # Permanent failures — don't waste retries
+        error_msg = str(exc).lower()
+        if any(pattern in error_msg for pattern in _NON_RETRYABLE_PATTERNS):
+            logger.error(f"[CELERY] Non-retryable error, skipping retries: {exc}")
+            return {"status": "error", "message": str(exc)}
+
+        # Transient failures — retry with exponential backoff (60s, 120s, 240s)
+        logger.info(
+            f"[CELERY] Transient error detected, scheduling retry "
+            f"(attempt {self.request.retries + 1}/{self.max_retries})"
+        )
+        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
 
     finally:
         db.close()
 
 
-@celery_app.task(bind=True, name='app.jobs.tasks.sync_all_email_accounts')
-def sync_all_email_accounts(self: Task):
+@celery_app.task(name='app.jobs.tasks.sync_all_email_accounts')
+def sync_all_email_accounts():
     """
     Sync all active email accounts (runs hourly).
     """
@@ -121,14 +142,13 @@ def sync_all_email_accounts(self: Task):
         db.close()
 
 
-@celery_app.task(bind=True, name='app.jobs.tasks.process_transaction')
-def process_transaction(self: Task, transaction_id: str):
+@celery_app.task(name='app.jobs.tasks.process_transaction')
+def process_transaction(transaction_id: str):
     """
     Process a single transaction (normalize, categorize, match).
+    Not yet implemented — normalization is handled synchronously in the sync pipeline.
     """
-    logger.info(f"Processing transaction: {transaction_id}")
-
-    # TODO: Implement transaction processing
-
-    logger.info(f"Transaction {transaction_id} processed")
-    return {"status": "success", "transaction_id": transaction_id}
+    raise NotImplementedError(
+        f"process_transaction is not yet implemented (transaction_id={transaction_id}). "
+        "Transaction normalization currently runs synchronously inside sync_email_account."
+    )

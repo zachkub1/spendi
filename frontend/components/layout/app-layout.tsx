@@ -29,6 +29,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Link href="/email" className="text-gray-600 hover:text-gray-900 transition-colors">
                   Email
                 </Link>
+                <Link href="/cards" className="text-gray-600 hover:text-gray-900 transition-colors">
+                  Card Manager
+                </Link>
               </nav>
             </div>
             <div className="flex items-center">

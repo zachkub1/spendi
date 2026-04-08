@@ -152,6 +152,10 @@ class ParsedTransaction(Base):
     confidence_score = Column(Numeric(5, 2), nullable=False)
     parser_version = Column(String(50), nullable=False)
 
+    # P2P metadata (Zelle / Venmo)
+    p2p_transaction_id = Column(String(255), nullable=True)  # Zelle transaction # or Venmo ID
+    p2p_source = Column(String(50), nullable=True)  # "zelle", "venmo", or None
+
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
@@ -273,6 +277,14 @@ class NormalizedTransaction(Base):
     # Versioning for audit trail (future use for overrides)
     version = Column(String(50), default="1.0", nullable=False)
 
+    # P2P metadata (Zelle / Venmo) — populated for transfer/payment transactions
+    sender_name = Column(String(255), nullable=True)       # Customizable display name for P2P sender
+    p2p_transaction_id = Column(String(255), nullable=True)  # Zelle transaction # or Venmo ID
+    p2p_source = Column(String(50), nullable=True)         # "zelle", "venmo", or None
+
+    # Reimbursement matching: links an incoming P2P transfer to the expense it covers
+    matched_to_transaction_id = Column(UUID(as_uuid=True), ForeignKey("normalized_transactions.id"), nullable=True)
+
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -280,6 +292,12 @@ class NormalizedTransaction(Base):
     parsed_transaction = relationship("ParsedTransaction", back_populates="normalized_transaction")
     payment_instrument = relationship("PaymentInstrument", back_populates="normalized_transactions")
     user = relationship("User")
+    matched_to_transaction = relationship(
+        "NormalizedTransaction",
+        foreign_keys=[matched_to_transaction_id],
+        remote_side="NormalizedTransaction.id",
+        uselist=False,
+    )
 
     def __repr__(self):
         return f"<NormalizedTransaction {self.merchant_normalized} ${self.amount} ({self.category})>"

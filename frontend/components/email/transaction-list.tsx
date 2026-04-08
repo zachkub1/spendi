@@ -10,34 +10,14 @@ import type { ParsedTransaction } from '@shared/types/transaction';
 import { apiClient } from '@/lib/api-client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { getCategoryMeta } from '@/lib/category-meta';
 
 const PAGE_SIZE = 20;
 
 interface TransactionListProps {
   accountId?: string;
   refreshTrigger?: number;
-  includeDemoData?: boolean;
 }
-
-// ─── Category badge metadata ─────────────────────────────────────────────────
-
-const CATEGORY_META: Record<string, { label: string; colorClass: string }> = {
-  dining:         { label: 'Dining',          colorClass: 'bg-orange-100 text-orange-800' },
-  groceries:      { label: 'Groceries',       colorClass: 'bg-green-100 text-green-800' },
-  gas:            { label: 'Gas',             colorClass: 'bg-amber-100 text-amber-800' },
-  travel:         { label: 'Travel',          colorClass: 'bg-blue-100 text-blue-800' },
-  shopping:       { label: 'Shopping',        colorClass: 'bg-purple-100 text-purple-800' },
-  entertainment:  { label: 'Entertainment',   colorClass: 'bg-pink-100 text-pink-800' },
-  utilities:      { label: 'Utilities',       colorClass: 'bg-gray-100 text-gray-700' },
-  healthcare:     { label: 'Healthcare',      colorClass: 'bg-red-100 text-red-800' },
-  transportation: { label: 'Transportation',  colorClass: 'bg-sky-100 text-sky-800' },
-  personal_care:  { label: 'Personal Care',   colorClass: 'bg-rose-100 text-rose-800' },
-  home:           { label: 'Home',            colorClass: 'bg-teal-100 text-teal-800' },
-  education:      { label: 'Education',       colorClass: 'bg-indigo-100 text-indigo-800' },
-  transfer:       { label: 'Transfer',        colorClass: 'bg-slate-100 text-slate-700' },
-  payment:        { label: 'Payment',         colorClass: 'bg-zinc-100 text-zinc-700' },
-  other:          { label: 'Other',           colorClass: 'bg-gray-100 text-gray-600' },
-};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -59,12 +39,9 @@ function formatDate(dateString: string): string {
 
 function CategoryBadge({ category }: { category: string | null }) {
   if (!category) return null;
-  const meta = CATEGORY_META[category] ?? {
-    label: category.replace(/_/g, ' '),
-    colorClass: 'bg-gray-100 text-gray-600',
-  };
+  const meta = getCategoryMeta(category);
   return (
-    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium capitalize ${meta.colorClass}`}>
+    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium capitalize ${meta.badge}`}>
       {meta.label}
     </span>
   );
@@ -128,7 +105,7 @@ function LoadingSkeleton() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function TransactionList({ accountId, refreshTrigger, includeDemoData = true }: TransactionListProps) {
+export function TransactionList({ accountId, refreshTrigger }: TransactionListProps) {
   const [transactions, setTransactions] = useState<ParsedTransaction[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -143,7 +120,6 @@ export function TransactionList({ accountId, refreshTrigger, includeDemoData = t
       offset: String(pageOffset),
     });
     if (accountId) params.set('account_id', accountId);
-    if (!includeDemoData) params.set('include_demo', 'false');
 
     const response = await apiClient.get<{
       transactions: ParsedTransaction[];
@@ -168,7 +144,7 @@ export function TransactionList({ accountId, refreshTrigger, includeDemoData = t
       .finally(() => setLoading(false));
     // fetchPage is stable across renders (no external deps captured in closure)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId, refreshTrigger, includeDemoData]);
+  }, [accountId, refreshTrigger]);
 
   const handleLoadMore = async () => {
     const nextOffset = offset + PAGE_SIZE;

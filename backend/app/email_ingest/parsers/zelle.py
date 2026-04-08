@@ -14,6 +14,7 @@ import re
 import logging
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Optional
 from .base import EmailParser, ParsedTransactionData, ParseResult
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,12 @@ class ZelleParser(EmailParser):
         re.IGNORECASE,
     )
     _TD_CONFIRMATION_RE = re.compile(
-        r"confirmation number\s+(\w+)\)",
+        r"confirmation number\s+(\w+)",
+        re.IGNORECASE,
+    )
+    # Chase body: "Transaction number\t1234567890"
+    _CHASE_TRANSACTION_ID_RE = re.compile(
+        r"Transaction number[\s\t]+(\w+)",
         re.IGNORECASE,
     )
     _TD_ACCOUNT_RE = re.compile(
@@ -163,9 +169,15 @@ class ZelleParser(EmailParser):
         # Date — try written date in body, fall back to current time
         transaction_date = self._extract_written_date(body) or datetime.now(timezone.utc)
 
+        # Confirmation number as transaction ID
+        p2p_transaction_id: Optional[str] = None
+        conf_match = self._TD_CONFIRMATION_RE.search(body)
+        if conf_match:
+            p2p_transaction_id = conf_match.group(1)
+
         logger.info(
-            "[ZELLE] TD Bank Zelle parsed: merchant=%r amount=%s account=****%s",
-            merchant_name, amount, card_last_four or "??",
+            "[ZELLE] TD Bank Zelle parsed: merchant=%r amount=%s account=****%s txid=%s",
+            merchant_name, amount, card_last_four or "??", p2p_transaction_id or "n/a",
         )
 
         return ParseResult(
@@ -177,6 +189,8 @@ class ZelleParser(EmailParser):
                 card_last_four=card_last_four,
                 transaction_type="transfer",  # Incoming deposit = transfer received
                 confidence_score=92.0,
+                p2p_source="zelle",
+                p2p_transaction_id=p2p_transaction_id,
             ),
         )
 
@@ -219,9 +233,15 @@ class ZelleParser(EmailParser):
             or datetime.now(timezone.utc)
         )
 
+        # Extract Chase transaction number: "Transaction number\t1234567890"
+        p2p_transaction_id: Optional[str] = None
+        txid_match = self._CHASE_TRANSACTION_ID_RE.search(body)
+        if txid_match:
+            p2p_transaction_id = txid_match.group(1)
+
         logger.info(
-            "[ZELLE] Chase Zelle parsed: merchant=%r amount=%s date=%s type=%s",
-            merchant_name, amount, transaction_date.date(), transaction_type,
+            "[ZELLE] Chase Zelle parsed: merchant=%r amount=%s date=%s type=%s txid=%s",
+            merchant_name, amount, transaction_date.date(), transaction_type, p2p_transaction_id or "n/a",
         )
 
         return ParseResult(
@@ -233,6 +253,8 @@ class ZelleParser(EmailParser):
                 card_last_four=None,
                 transaction_type=transaction_type,
                 confidence_score=92.0,
+                p2p_source="zelle",
+                p2p_transaction_id=p2p_transaction_id,
             ),
         )
 
@@ -279,6 +301,7 @@ class ZelleParser(EmailParser):
                 card_last_four=None,
                 transaction_type=transaction_type,
                 confidence_score=90.0,
+                p2p_source="zelle",
             ),
         )
 

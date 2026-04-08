@@ -22,6 +22,7 @@ interface PaymentInstrument {
 interface TransactionFiltersProps {
   filters: FilterParams;
   onFilterChange: (filters: FilterParams) => void;
+  paymentInstruments?: PaymentInstrument[];
 }
 
 // Values must match the backend TransactionCategory enum (lowercase)
@@ -46,6 +47,7 @@ const CATEGORIES = [
 export function TransactionFilters({
   filters,
   onFilterChange,
+  paymentInstruments: instrumentsProp,
 }: TransactionFiltersProps) {
   const [localFilters, setLocalFilters] = useState<FilterParams>(filters);
 
@@ -53,17 +55,19 @@ export function TransactionFilters({
   useEffect(() => {
     setLocalFilters(filters);
   }, [filters]);
-  const [paymentInstruments, setPaymentInstruments] = useState<
-    PaymentInstrument[]
-  >([]);
 
-  // Fetch payment instruments for filter dropdown
+  const [fetchedInstruments, setFetchedInstruments] = useState<PaymentInstrument[]>([]);
+
+  // Only fetch internally when the parent doesn't supply the list
   useEffect(() => {
+    if (instrumentsProp !== undefined) return;
     apiClient
       .get<PaymentInstrument[]>("/transactions/payment-instruments")
-      .then(setPaymentInstruments)
+      .then(setFetchedInstruments)
       .catch((err) => console.error("Error fetching payment instruments:", err));
-  }, []);
+  }, [instrumentsProp]);
+
+  const paymentInstruments = instrumentsProp ?? fetchedInstruments;
 
   const handleFilterChange = (key: keyof FilterParams, value: string) => {
     const newFilters = {

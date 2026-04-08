@@ -9,26 +9,7 @@ import type {
   NormalizedTransaction,
   TransactionCategory,
 } from '@shared/types/transaction';
-
-// ─── Category metadata ────────────────────────────────────────────────────────
-
-const CATEGORY_META: Record<TransactionCategory, { label: string; icon: string; color: string }> = {
-  dining:         { label: 'Dining & Restaurants', icon: '🍽️',  color: 'bg-orange-100 text-orange-800' },
-  groceries:      { label: 'Groceries',            icon: '🛒',  color: 'bg-green-100 text-green-800' },
-  gas:            { label: 'Gas & Fuel',            icon: '⛽',  color: 'bg-amber-100 text-amber-800' },
-  travel:         { label: 'Travel',                icon: '✈️',  color: 'bg-blue-100 text-blue-800' },
-  shopping:       { label: 'Shopping',              icon: '🛍️',  color: 'bg-purple-100 text-purple-800' },
-  entertainment:  { label: 'Entertainment',         icon: '🎬',  color: 'bg-pink-100 text-pink-800' },
-  utilities:      { label: 'Utilities',             icon: '💡',  color: 'bg-gray-100 text-gray-700' },
-  healthcare:     { label: 'Healthcare',            icon: '🏥',  color: 'bg-red-100 text-red-800' },
-  transportation: { label: 'Transportation',        icon: '🚗',  color: 'bg-sky-100 text-sky-800' },
-  personal_care:  { label: 'Personal Care',         icon: '💅',  color: 'bg-rose-100 text-rose-800' },
-  home:           { label: 'Home & Garden',         icon: '🏠',  color: 'bg-teal-100 text-teal-800' },
-  education:      { label: 'Education',             icon: '📚',  color: 'bg-indigo-100 text-indigo-800' },
-  transfer:       { label: 'Transfer',              icon: '💸',  color: 'bg-slate-100 text-slate-700' },
-  payment:        { label: 'Payment',               icon: '💳',  color: 'bg-zinc-100 text-zinc-700' },
-  other:          { label: 'Other',                 icon: '📌',  color: 'bg-gray-100 text-gray-600' },
-};
+import { CATEGORY_META, getCategoryMeta } from '@/lib/category-meta';
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_META) as TransactionCategory[];
 
@@ -180,7 +161,7 @@ export default function TransactionDetailPage() {
 
         {/* Content */}
         {!loading && !error && !notFound && transaction && (() => {
-          const catMeta = CATEGORY_META[transaction.category] ?? CATEGORY_META.other;
+          const catMeta = getCategoryMeta(transaction.category);
           const reimbLabel = getReimbursementLabel(transaction.reimbursement_status);
           const pi = transaction.payment_instrument;
           const netDiffers = parseFloat(transaction.net_amount) !== parseFloat(transaction.amount);
@@ -203,7 +184,7 @@ export default function TransactionDetailPage() {
                     )}
                   </p>
                 </div>
-                <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${catMeta.color}`}>
+                <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${catMeta.badge}`}>
                   {catMeta.icon} {catMeta.label}
                 </span>
               </div>

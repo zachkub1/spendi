@@ -72,6 +72,13 @@ class PaymentInstrumentMatchingService:
         # Calculate net amount (initially same as amount, before reimbursements)
         net_amount = parsed_transaction.amount
 
+        # For P2P transactions, use merchant_name as the initial sender_name
+        sender_name = (
+            parsed_transaction.merchant_name
+            if parsed_transaction.p2p_source
+            else None
+        )
+
         # Create normalized transaction
         normalized_txn = NormalizedTransaction(
             parsed_transaction_id=parsed_transaction.id,
@@ -88,7 +95,10 @@ class PaymentInstrumentMatchingService:
             reimbursement_status=ReimbursementStatus.NONE,
             reimbursed_amount=Decimal("0.00"),
             net_amount=net_amount,
-            version="1.0"
+            version="1.0",
+            sender_name=sender_name,
+            p2p_transaction_id=parsed_transaction.p2p_transaction_id,
+            p2p_source=parsed_transaction.p2p_source,
         )
 
         db.add(normalized_txn)
@@ -137,18 +147,34 @@ class PaymentInstrumentMatchingService:
             if instrument:
                 return instrument
 
-        # Strategy 2: Match P2P accounts by transaction type
-        # For Venmo/Zelle, we'll need to extract recipient/sender from merchant name
-        if parsed_transaction.transaction_type in ["transfer", "payment"]:
-            # Try to find P2P instrument
-            # For MVP, we'll match any active P2P account
-            # Future: Extract account identifier from merchant name and match specifically
+        # Strategy 2: P2P accounts — only when the transaction is explicitly a P2P source
+        # (Venmo/Zelle) or an incoming transfer. Bill payments from card issuers
+        # (Discover, Amex) also use type="payment" but must NOT be routed here.
+        is_p2p = (
+            parsed_transaction.p2p_source is not None
+            or parsed_transaction.transaction_type == "transfer"
+        )
+        if is_p2p:
             instrument = db.query(PaymentInstrument).filter(
                 PaymentInstrument.user_id == user_id,
                 PaymentInstrument.type == PaymentInstrumentType.P2P_ACCOUNT,
                 PaymentInstrument.status == PaymentInstrumentStatus.ACTIVE
             ).first()
+            if instrument:
+                return instrument
 
+        # Strategy 3: Bill payments (type="payment", no card_last_four) — match to
+        # any active credit/debit card as a best-effort fallback so payments are
+        # not silently dropped when the card number isn't present in the email.
+        if parsed_transaction.transaction_type == "payment":
+            instrument = db.query(PaymentInstrument).filter(
+                PaymentInstrument.user_id == user_id,
+                PaymentInstrument.type.in_([
+                    PaymentInstrumentType.CREDIT_CARD,
+                    PaymentInstrumentType.DEBIT_CARD,
+                ]),
+                PaymentInstrument.status == PaymentInstrumentStatus.ACTIVE
+            ).first()
             if instrument:
                 return instrument
 

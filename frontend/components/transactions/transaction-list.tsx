@@ -83,7 +83,7 @@ function TransactionCard({ transaction }: { transaction: Transaction }) {
               <span>
                 {transaction.payment_instrument.display_name}
                 {transaction.payment_instrument.last_four_digits &&
-                  ` (••${transaction.payment_instrument.last_four_digits})`}
+                  ` ••••${transaction.payment_instrument.last_four_digits}`}
               </span>
               <span>•</span>
               <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">
