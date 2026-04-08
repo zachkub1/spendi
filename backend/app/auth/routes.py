@@ -68,7 +68,6 @@ async def login():
     # Generate authorization URL
     authorization_url, state = flow.authorization_url(
         access_type="offline",  # Request refresh token
-        include_granted_scopes="true",
         prompt="consent",  # Force consent screen to ensure refresh token
     )
 

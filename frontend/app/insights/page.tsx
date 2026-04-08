@@ -53,7 +53,6 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 export default function InsightsPage() {
   const [year, setYear] = useState(CURRENT_YEAR);
   const [category, setCategory] = useState<TransactionCategory | ''>('');
-  const [showDemo, setShowDemo] = useState(true);
 
   const [monthlyData, setMonthlyData] = useState<MonthlyInsightItem[]>([]);
   const [yearlyData, setYearlyData] = useState<YearlyInsightItem[]>([]);
@@ -66,17 +65,16 @@ export default function InsightsPage() {
     setError(null);
     try {
       const catParam = category ? `&category=${category}` : '';
-      const demoParam = `&include_demo=${showDemo}`;
 
       const [monthly, yearly, summary] = await Promise.all([
         apiClient.get<MonthlyInsightItem[]>(
-          `/transactions/insights/monthly?year=${year}${catParam}${demoParam}`
+          `/transactions/insights/monthly?year=${year}${catParam}`
         ),
         apiClient.get<YearlyInsightItem[]>(
-          `/transactions/insights/yearly?${catParam}${demoParam}`
+          `/transactions/insights/yearly?${catParam}`
         ),
         apiClient.get<SummaryData>(
-          `/transactions/summary?${demoParam}`
+          `/transactions/summary`
         ),
       ]);
 
@@ -88,7 +86,7 @@ export default function InsightsPage() {
     } finally {
       setLoading(false);
     }
-  }, [year, category, showDemo]);
+  }, [year, category]);
 
   useEffect(() => {
     fetchAll();
@@ -108,14 +106,8 @@ export default function InsightsPage() {
       <div className="container mx-auto px-4 py-8">
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6">
           <h1 className="text-3xl font-bold">Insights</h1>
-          <button
-            onClick={() => setShowDemo((v) => !v)}
-            className="text-xs px-3 py-1.5 rounded-full border border-dashed border-gray-400 text-gray-500 hover:border-gray-600 hover:text-gray-700 transition-colors"
-          >
-            {showDemo ? 'Hide Demo Data' : 'Show Demo Data'}
-          </button>
         </div>
 
         {/* ── Error ───────────────────────────────────────────────────────── */}
