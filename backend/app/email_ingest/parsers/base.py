@@ -17,6 +17,8 @@ class ParsedTransactionData:
     card_last_four: Optional[str]
     transaction_type: str  # purchase, refund, payment, transfer
     confidence_score: float  # 0-100
+    p2p_transaction_id: Optional[str] = None  # Zelle/Venmo transaction reference ID
+    p2p_source: Optional[str] = None  # "zelle", "venmo", or None for card transactions
 
 
 @dataclass

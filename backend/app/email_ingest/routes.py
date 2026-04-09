@@ -4,7 +4,7 @@ API endpoints for connecting/disconnecting Gmail accounts.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.db.session import get_db
@@ -14,7 +14,6 @@ from app.email_ingest.service import EmailAccountService
 from app.email_ingest.gmail_client import GmailClient
 from app.config import settings
 from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
 from pydantic import BaseModel
 import logging
 
@@ -217,7 +216,7 @@ async def connect_gmail(
             )
 
         # Calculate token expiration
-        expires_at = datetime.utcnow() + timedelta(seconds=credentials.expiry.timestamp() - datetime.utcnow().timestamp())
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=credentials.expiry.timestamp() - datetime.now(timezone.utc).timestamp())
 
         # Create email account with encrypted tokens
         email_account = EmailAccountService.create_email_account(
@@ -242,6 +241,8 @@ async def connect_gmail(
             }
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to connect Gmail: {e}")
         raise HTTPException(
@@ -255,8 +256,15 @@ async def list_email_accounts(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List user's connected email accounts."""
-    accounts = db.query(EmailAccount).filter_by(user_id=current_user.id).all()
+    """List user's connected email accounts (excludes demo accounts)."""
+    accounts = (
+        db.query(EmailAccount)
+        .filter(
+            EmailAccount.user_id == current_user.id,
+            EmailAccount.provider != "demo"
+        )
+        .all()
+    )
 
     return {
         "accounts": [
@@ -343,6 +351,8 @@ async def trigger_sync(
     Manually trigger email sync for an account.
     Runs in background task (Celery).
     """
+    logger.info(f"[SYNC_API] User {current_user.id} requesting sync for account {account_id}")
+
     # Verify ownership
     email_account = db.query(EmailAccount).filter_by(
         id=account_id,
@@ -350,60 +360,118 @@ async def trigger_sync(
     ).first()
 
     if not email_account:
+        logger.warning(f"[SYNC_API] Account {account_id} not found for user {current_user.id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Email account not found"
         )
 
+    logger.info(f"[SYNC_API] Account found: {email_account.email_address}, sync_status={email_account.sync_status}")
+
     if email_account.sync_status == "in_progress":
+        logger.warning(f"[SYNC_API] Sync already in progress for {account_id}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Sync already in progress"
         )
 
-    # Enqueue Celery task
-    from jobs.tasks import sync_email_account_task
-    task = sync_email_account_task.delay(str(email_account.id))
+    # Verify OAuth tokens exist
+    if not email_account.oauth_access_token or not email_account.oauth_refresh_token:
+        logger.error(f"[SYNC_API] Missing OAuth tokens for account {account_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email account is missing OAuth tokens. Please reconnect your Gmail account."
+        )
 
-    return {
-        "message": "Sync started",
-        "task_id": task.id
-    }
+    # Enqueue Celery task
+    try:
+        logger.info(f"[SYNC_API] Importing Celery task...")
+        from app.jobs.tasks import sync_email_account_task
+
+        logger.info(f"[SYNC_API] Enqueuing sync task for {account_id}...")
+        task = sync_email_account_task.delay(str(email_account.id))
+
+        logger.info(f"[SYNC_API] Task enqueued successfully: task_id={task.id}")
+
+        return {
+            "message": "Sync started",
+            "task_id": task.id,
+            "account_id": str(email_account.id),
+            "email_address": email_account.email_address
+        }
+    except ImportError as e:
+        logger.error(f"[SYNC_API] Failed to import Celery task: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Background job system not available. Please check Celery worker is running."
+        )
+    except Exception as e:
+        logger.error(f"[SYNC_API] Failed to enqueue sync task: {type(e).__name__}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start sync: {str(e)}"
+        )
 
 
 @router.get("/transactions")
 async def list_parsed_transactions(
     account_id: Optional[str] = None,
-    limit: int = 50,
+    limit: int = 20,
+    offset: int = 0,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """List parsed transactions for user."""
+    """List parsed transactions for user with optional category from normalized record."""
     from app.db.models import ParsedTransaction
+    from sqlalchemy.orm import joinedload
 
-    query = db.query(ParsedTransaction).join(EmailAccount).filter(
-        EmailAccount.user_id == current_user.id
+    query = (
+        db.query(ParsedTransaction)
+        .options(joinedload(ParsedTransaction.normalized_transaction))
+        .join(EmailAccount)
+        .filter(
+            EmailAccount.user_id == current_user.id,
+            EmailAccount.provider != "demo",
+        )
     )
 
     if account_id:
         query = query.filter(ParsedTransaction.email_account_id == account_id)
 
-    transactions = query.order_by(
-        ParsedTransaction.transaction_date.desc()
-    ).limit(limit).all()
+    total = query.count()
+    transactions = (
+        query
+        .order_by(ParsedTransaction.transaction_date.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
     return {
         "transactions": [
             {
                 "id": str(t.id),
                 "merchant_name": t.merchant_name,
+                "merchant_normalized": (
+                    t.normalized_transaction.merchant_normalized
+                    if t.normalized_transaction else None
+                ),
                 "amount": str(t.amount),
                 "transaction_date": t.transaction_date.isoformat(),
                 "card_last_four": t.card_last_four,
                 "transaction_type": t.transaction_type,
                 "confidence_score": float(t.confidence_score),
+                "category": (
+                    t.normalized_transaction.category
+                    if t.normalized_transaction else None
+                ),
                 "created_at": t.created_at.isoformat()
             }
             for t in transactions
-        ]
+        ],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
     }
+
+

@@ -54,6 +54,7 @@ class ParserRegistry:
             "venmo.com",
             "zellepay.com",
             "notify.zelle.com",
+            "tdbank.com",
             "discover.com",
             "services.discover.com",
             "discovercard.com",

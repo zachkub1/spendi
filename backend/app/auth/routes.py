@@ -68,7 +68,6 @@ async def login():
     # Generate authorization URL
     authorization_url, state = flow.authorization_url(
         access_type="offline",  # Request refresh token
-        include_granted_scopes="true",
         prompt="consent",  # Force consent screen to ensure refresh token
     )
 
@@ -155,9 +154,10 @@ async def callback(
             user_id=str(user.id), email=user.email
         )
 
-        # Redirect to frontend with token
-        # Frontend should extract the token from URL and store it
-        redirect_url = f"{settings.FRONTEND_URL}/auth/callback?token={access_token}"
+        # Redirect to frontend with token in the URL fragment (#).
+        # Fragments are never sent to the server, so the JWT won't appear in
+        # access logs, Referer headers, or browser history network entries.
+        redirect_url = f"{settings.FRONTEND_URL}/auth/callback#token={access_token}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:

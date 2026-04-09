@@ -12,11 +12,11 @@ import { SyncButton } from '@/components/email/sync-button';
 import { TransactionList } from '@/components/email/transaction-list';
 import type { EmailAccount } from '@shared/types/email-account';
 import { apiClient } from '@/lib/api-client';
-import { Separator } from '@/components/ui/separator';
 
 export default function EmailPage() {
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [txRefreshTrigger, setTxRefreshTrigger] = useState(0);
 
   const fetchAccounts = async () => {
     try {
@@ -33,8 +33,9 @@ export default function EmailPage() {
     fetchAccounts();
   }, []);
 
-  const handleDisconnected = () => {
+  const handleSyncComplete = () => {
     fetchAccounts();
+    setTxRefreshTrigger(n => n + 1);
   };
 
   return (
@@ -48,6 +49,7 @@ export default function EmailPage() {
             <p className="mt-2 text-gray-600">Loading email accounts...</p>
           </div>
         ) : accounts.length === 0 ? (
+          /* ── No accounts connected ─────────────────────────────────────── */
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold mb-4">No Email Accounts Connected</h2>
             <p className="text-gray-600 mb-6">
@@ -56,6 +58,7 @@ export default function EmailPage() {
             <ConnectGmailButton onConnected={fetchAccounts} />
           </div>
         ) : (
+          /* ── Accounts connected ────────────────────────────────────────── */
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Connected Accounts</h2>
@@ -67,21 +70,18 @@ export default function EmailPage() {
                 <div key={account.id} className="space-y-2">
                   <EmailAccountCard
                     account={account}
-                    onDisconnected={handleDisconnected}
+                    onDisconnected={fetchAccounts}
                   />
                   <SyncButton
                     accountId={account.id}
-                    onSyncComplete={fetchAccounts}
+                    onSyncComplete={handleSyncComplete}
                   />
                 </div>
               ))}
             </div>
 
-            <Separator className="my-8" />
-
-            <div className="mt-8">
-              <TransactionList />
-            </div>
+            <h2 className="text-xl font-semibold pt-4">Parsed Transactions</h2>
+            <TransactionList refreshTrigger={txRefreshTrigger} />
           </div>
         )}
       </div>

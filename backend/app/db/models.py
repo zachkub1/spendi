@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey, Enum as SQLEnum, Numeric
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import enum
 
@@ -20,8 +20,8 @@ class User(Base):
     oauth_provider = Column(String(50), nullable=False, default="google")  # "google" for MVP
     oauth_subject_id = Column(String(255), unique=True, nullable=False, index=True)  # Google's 'sub' claim
     display_name = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_login_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    last_login_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     deleted_at = Column(DateTime, nullable=True)  # Soft delete
 
     # Relationships
@@ -58,8 +58,8 @@ class EmailAccount(Base):
     last_sync_at = Column(DateTime, nullable=True)
     sync_status = Column(String(50), nullable=True)  # "success", "error", "in_progress"
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     user = relationship("User", back_populates="email_accounts")
@@ -96,7 +96,7 @@ class AuditLog(Base):
     details = Column(JSONB, nullable=True, default=dict)  # Additional context
     ip_address = Column(String(45), nullable=True)  # IPv4 or IPv6
     user_agent = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
 
     # Relationships
     user = relationship("User", back_populates="audit_logs")
@@ -120,7 +120,7 @@ class RawEmail(Base):
     parsing_status = Column(String(50), nullable=False, default="pending")
     parser_used = Column(String(50), nullable=True)
     error_message = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     email_account = relationship("EmailAccount", back_populates="raw_emails")
@@ -152,11 +152,152 @@ class ParsedTransaction(Base):
     confidence_score = Column(Numeric(5, 2), nullable=False)
     parser_version = Column(String(50), nullable=False)
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # P2P metadata (Zelle / Venmo)
+    p2p_transaction_id = Column(String(255), nullable=True)  # Zelle transaction # or Venmo ID
+    p2p_source = Column(String(50), nullable=True)  # "zelle", "venmo", or None
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     raw_email = relationship("RawEmail", back_populates="parsed_transaction")
     email_account = relationship("EmailAccount")
+    normalized_transaction = relationship("NormalizedTransaction", uselist=False, back_populates="parsed_transaction")
 
     def __repr__(self):
         return f"<ParsedTransaction {self.merchant_name} ${self.amount}>"
+
+
+class PaymentInstrumentType(str, enum.Enum):
+    """Enumeration of payment instrument types."""
+    CREDIT_CARD = "credit_card"
+    DEBIT_CARD = "debit_card"
+    P2P_ACCOUNT = "p2p_account"  # Venmo, Zelle, etc.
+
+
+class PaymentInstrumentStatus(str, enum.Enum):
+    """Enumeration of payment instrument statuses."""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    CLOSED = "closed"
+
+
+class PaymentInstrument(Base):
+    """
+    PaymentInstrument - represents a credit card, debit card, or P2P account.
+    Used for matching parsed transactions to the correct payment method.
+    """
+    __tablename__ = "payment_instruments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    # Instrument details
+    type = Column(SQLEnum(PaymentInstrumentType), nullable=False)
+    issuer = Column(String(100), nullable=True)  # "Chase", "Amex", "Discover", "Venmo", etc.
+    display_name = Column(String(255), nullable=False)  # User-friendly name (e.g., "Chase Sapphire Reserve")
+    network = Column(String(50), nullable=True)  # "Visa", "Mastercard", "Amex", "Discover"
+
+    # Matching identifiers
+    last_four_digits = Column(String(4), nullable=True)  # For cards
+    account_identifier = Column(String(255), nullable=True)  # For P2P (Venmo username, Zelle email)
+
+    # Status
+    status = Column(SQLEnum(PaymentInstrumentStatus), default=PaymentInstrumentStatus.ACTIVE, nullable=False)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Relationships
+    user = relationship("User")
+    normalized_transactions = relationship("NormalizedTransaction", back_populates="payment_instrument")
+
+    def __repr__(self):
+        return f"<PaymentInstrument {self.display_name} ({self.last_four_digits or self.account_identifier})>"
+
+
+class TransactionCategory(str, enum.Enum):
+    """Standard transaction categories for spending analysis."""
+    DINING = "dining"
+    GROCERIES = "groceries"
+    GAS = "gas"
+    TRAVEL = "travel"
+    SHOPPING = "shopping"
+    ENTERTAINMENT = "entertainment"
+    UTILITIES = "utilities"
+    HEALTHCARE = "healthcare"
+    TRANSPORTATION = "transportation"
+    PERSONAL_CARE = "personal_care"
+    HOME = "home"
+    EDUCATION = "education"
+    TRANSFER = "transfer"  # P2P transfers
+    PAYMENT = "payment"  # Bill payments
+    OTHER = "other"
+
+
+class ReimbursementStatus(str, enum.Enum):
+    """Reimbursement status for tracking expected/confirmed reimbursements."""
+    NONE = "none"  # Not expecting reimbursement
+    EXPECTED = "expected"  # Expecting reimbursement
+    PARTIAL = "partial"  # Partially reimbursed
+    COMPLETE = "complete"  # Fully reimbursed
+
+
+class NormalizedTransaction(Base):
+    """
+    NormalizedTransaction - the core immutable ledger of all financial activity.
+    Links parsed email transactions to payment instruments with normalized merchant names,
+    categories, and reimbursement tracking.
+
+    Immutability: Fields are append-only. Category/merchant overrides create new versions.
+    """
+    __tablename__ = "normalized_transactions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parsed_transaction_id = Column(UUID(as_uuid=True), ForeignKey("parsed_transactions.id"), nullable=False, unique=True)
+    payment_instrument_id = Column(UUID(as_uuid=True), ForeignKey("payment_instruments.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+
+    # Normalized transaction data
+    merchant_normalized = Column(String(255), nullable=False)  # Normalized merchant name (e.g., "Square" not "SQ *")
+    amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(String(3), default="USD", nullable=False)
+    transaction_date = Column(DateTime, nullable=False)
+    transaction_type = Column(String(50), nullable=False)  # purchase, refund, payment, transfer
+
+    # Categorization
+    category = Column(SQLEnum(TransactionCategory), nullable=False, default=TransactionCategory.OTHER)
+    category_confidence = Column(Numeric(5, 2), nullable=True)  # 0-100 confidence score
+    category_source = Column(String(50), nullable=True)  # "auto_ml", "auto_rules", "user_override"
+
+    # Reimbursement tracking
+    reimbursement_status = Column(SQLEnum(ReimbursementStatus), default=ReimbursementStatus.NONE, nullable=False)
+    reimbursed_amount = Column(Numeric(12, 2), default=0.00, nullable=False)
+    net_amount = Column(Numeric(12, 2), nullable=False)  # amount - reimbursed_amount
+
+    # Versioning for audit trail (future use for overrides)
+    version = Column(String(50), default="1.0", nullable=False)
+
+    # P2P metadata (Zelle / Venmo) — populated for transfer/payment transactions
+    sender_name = Column(String(255), nullable=True)       # Customizable display name for P2P sender
+    p2p_transaction_id = Column(String(255), nullable=True)  # Zelle transaction # or Venmo ID
+    p2p_source = Column(String(50), nullable=True)         # "zelle", "venmo", or None
+
+    # Reimbursement matching: links an incoming P2P transfer to the expense it covers
+    matched_to_transaction_id = Column(UUID(as_uuid=True), ForeignKey("normalized_transactions.id"), nullable=True)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Relationships
+    parsed_transaction = relationship("ParsedTransaction", back_populates="normalized_transaction")
+    payment_instrument = relationship("PaymentInstrument", back_populates="normalized_transactions")
+    user = relationship("User")
+    matched_to_transaction = relationship(
+        "NormalizedTransaction",
+        foreign_keys=[matched_to_transaction_id],
+        remote_side="NormalizedTransaction.id",
+        uselist=False,
+    )
+
+    def __repr__(self):
+        return f"<NormalizedTransaction {self.merchant_normalized} ${self.amount} ({self.category})>"

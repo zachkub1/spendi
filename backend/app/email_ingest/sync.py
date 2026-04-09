@@ -3,13 +3,14 @@ Email sync service - orchestrates email discovery, fetching, and parsing.
 """
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
+from email.utils import parsedate_to_datetime, parseaddr
 from typing import Optional
 from app.db.models import EmailAccount, RawEmail, ParsedTransaction, AuditLogAction
 from app.email_ingest.service import EmailAccountService
 from app.email_ingest.gmail_client import GmailClient
 from app.email_ingest.parsers.registry import ParserRegistry
 from app.auth.service import AuthService
+from app.transactions.matching_service import PaymentInstrumentMatchingService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,35 @@ class EmailSyncService:
 
             # Stage 1: Discovery - list messages from allowed senders
             last_sync = email_account.last_sync_at or datetime(2020, 1, 1)
+
+            # Extend window back to cover any previously-failed emails that need retry
+            oldest_failed = (
+                db.query(RawEmail)
+                .filter(
+                    RawEmail.email_account_id == email_account.id,
+                    RawEmail.parsing_status == "failed"
+                )
+                .order_by(RawEmail.received_at.asc())
+                .first()
+            )
+            if oldest_failed and oldest_failed.received_at:
+                # Normalize both to naive UTC for comparison
+                failed_dt = oldest_failed.received_at
+                if getattr(failed_dt, 'tzinfo', None):
+                    failed_dt = failed_dt.replace(tzinfo=None)
+                last_sync_naive = last_sync.replace(tzinfo=None) if getattr(last_sync, 'tzinfo', None) else last_sync
+                if failed_dt < last_sync_naive:
+                    retry_count = (
+                        db.query(RawEmail)
+                        .filter(
+                            RawEmail.email_account_id == email_account.id,
+                            RawEmail.parsing_status == "failed"
+                        )
+                        .count()
+                    )
+                    logger.info(f"[SYNC] {retry_count} failed email(s) detected — extending sync window from {last_sync_naive.date()} back to {failed_dt.date()}")
+                    last_sync = failed_dt
+
             sender_filter = ParserRegistry.get_allowed_senders()
 
             logger.info(f"[SYNC] Querying Gmail API for messages since {last_sync}")
@@ -125,47 +155,106 @@ class EmailSyncService:
             parsed_count = 0
             failed_count = 0
             non_transaction_count = 0
+            normalized_count = 0
 
             # Stage 2 & 3: Fetch and Parse
             for msg_metadata in messages:
-                # Check if already processed (idempotency)
+                # Idempotency: skip already-successful emails; retry failed/pending ones
                 existing = db.query(RawEmail).filter_by(
                     message_id=msg_metadata['id']
                 ).first()
+                if existing and existing.parsing_status in ("success", "non_transaction"):
+                    # Always skip confirmed successes.
+                    # For non_transaction: skip unless a parser now claims it can parse it,
+                    # which means new patterns were added after the email was processed.
+                    if existing.parsing_status == "success":
+                        logger.debug(
+                            f"[SYNC] Skipping {msg_metadata['id']!r} — "
+                            f"already success (subject={existing.subject!r})"
+                        )
+                        continue
+                    # non_transaction: peek at whether a parser now matches the subject
+                    # (uses stored subject — no extra API call needed)
+                    candidate_parser = ParserRegistry.get_parser(
+                        existing.sender.lower() if existing.sender else "",
+                        existing.subject or "",
+                    )
+                    # parseaddr is already imported at module level
+                    _, clean_sender = parseaddr(existing.sender or "")
+                    if not candidate_parser and clean_sender:
+                        candidate_parser = ParserRegistry.get_parser(
+                            clean_sender.lower(), existing.subject or ""
+                        )
+                    if not candidate_parser:
+                        logger.debug(
+                            f"[SYNC] Skipping {msg_metadata['id']!r} — "
+                            f"non_transaction, no parser match "
+                            f"(subject={existing.subject!r})"
+                        )
+                        continue
+                    # A parser now matches — allow retry by falling through
+                    logger.info(
+                        f"[SYNC] Re-queuing {msg_metadata['id']!r} — "
+                        f"previously non_transaction but parser now matches "
+                        f"(subject={existing.subject!r})"
+                    )
                 if existing:
-                    continue
+                    logger.info(f"[SYNC] Retrying email {msg_metadata['id']} (status={existing.parsing_status!r}, reason={existing.error_message!r})")
 
                 # Fetch full message
                 try:
                     message = gmail_client.get_message(msg_metadata['id'])
                 except Exception as e:
                     logger.error(f"Failed to fetch message {msg_metadata['id']}: {e}")
+                    if existing:
+                        existing.error_message = f"refetch_failed: {str(e)}"
                     continue
 
                 subject = message['subject']
-                sender = message['from']
+                sender_raw = message['from']
+                # Extract clean email address from display-name formatted From header.
+                # Gmail From headers look like "Chase Alerts <no.reply.alerts@chase.com>"
+                # which breaks $-anchored sender patterns if passed as-is.
+                _, sender = parseaddr(sender_raw)
+                sender = sender.lower()
                 body = message['body']
                 received_at = parse_email_date(message.get('date', ''), message.get('internalDate'))
 
-                # Create RawEmail record
-                raw_email = RawEmail(
-                    email_account_id=email_account.id,
-                    message_id=msg_metadata['id'],
-                    subject=subject,
-                    sender=sender,
-                    received_at=received_at,
-                    parsing_status="pending"
-                )
-                db.add(raw_email)
-                db.flush()
+                if existing:
+                    # Reset failed record for retry in-place (preserves id + foreign keys)
+                    raw_email = existing
+                    raw_email.subject = subject
+                    raw_email.sender = sender_raw
+                    raw_email.received_at = received_at
+                    raw_email.parsing_status = "pending"
+                    raw_email.error_message = None
+                    raw_email.parser_used = None
+                    db.flush()
+                else:
+                    # Create RawEmail record — store original From header for audit trail
+                    raw_email = RawEmail(
+                        email_account_id=email_account.id,
+                        message_id=msg_metadata['id'],
+                        subject=subject,
+                        sender=sender_raw,
+                        received_at=received_at,
+                        parsing_status="pending"
+                    )
+                    db.add(raw_email)
+                    db.flush()
                 discovered_count += 1
 
-                # Find appropriate parser
+                # Find appropriate parser using extracted email address
                 parser = ParserRegistry.get_parser(sender, subject)
                 if not parser:
                     raw_email.parsing_status = "failed"
                     raw_email.error_message = "No parser found for email"
                     failed_count += 1
+                    logger.warning(
+                        f"[SYNC] No parser matched — sender_email={sender!r}, subject={subject!r}"
+                    )
+                    # Dump first 500 chars of body at DEBUG for pattern analysis
+                    logger.debug(f"[SYNC] Unmatched body preview: {body[:500]!r}")
                     continue
 
                 # Parse transaction
@@ -185,13 +274,32 @@ class EmailSyncService:
                             card_last_four=parse_result.data.card_last_four,
                             transaction_type=parse_result.data.transaction_type,
                             confidence_score=parse_result.data.confidence_score,
-                            parser_version=parser.get_version()
+                            parser_version=parser.get_version(),
+                            p2p_transaction_id=parse_result.data.p2p_transaction_id,
+                            p2p_source=parse_result.data.p2p_source,
                         )
                         db.add(parsed_txn)
+                        db.flush()  # Flush to get parsed_txn.id for matching
 
                         raw_email.parsing_status = "success"
                         parsed_count += 1
                         logger.debug(f"✅ Parsed transaction from {sender}: {parse_result.data.merchant_name} ${parse_result.data.amount}")
+
+                        # Phase 2: Match to payment instrument and normalize
+                        try:
+                            normalized_txn = PaymentInstrumentMatchingService.match_and_normalize(
+                                db=db,
+                                parsed_transaction=parsed_txn,
+                                user_id=str(email_account.user_id)
+                            )
+                            if normalized_txn:
+                                normalized_count += 1
+                                logger.debug(f"✅ Normalized: {normalized_txn.merchant_normalized} ({normalized_txn.category})")
+                            else:
+                                logger.warning(f"⚠️  No payment instrument match for: {parsed_txn.merchant_name}")
+                        except Exception as norm_error:
+                            # Normalization failure should not crash the sync
+                            logger.error(f"❌ Normalization failed for {parsed_txn.merchant_name}: {norm_error}")
 
                     elif parse_result.status == "non_transaction":
                         # Email is from financial provider but contains no transaction (marketing, alerts, etc.)
@@ -205,7 +313,11 @@ class EmailSyncService:
                         raw_email.parsing_status = "failed"
                         raw_email.error_message = parse_result.reason
                         failed_count += 1
-                        logger.warning(f"⚠️  Parse error for {msg_metadata['id']}: {parse_result.reason}")
+                        logger.warning(
+                            f"⚠️  Parse error for {msg_metadata['id']}: {parse_result.reason} "
+                            f"(sender={sender!r}, subject={subject!r})"
+                        )
+                        logger.debug(f"[SYNC] Parse-error body preview: {body[:500]!r}")
 
                 except Exception as e:
                     # Unexpected exception during parsing (shouldn't happen with new contract)
@@ -219,7 +331,7 @@ class EmailSyncService:
             email_account.sync_status = "success"
             db.commit()
 
-            logger.info(f"✅ Sync completed: {discovered_count} discovered, {parsed_count} parsed, {non_transaction_count} non-transaction, {failed_count} failed")
+            logger.info(f"✅ Sync completed: {discovered_count} discovered, {parsed_count} parsed, {normalized_count} normalized, {non_transaction_count} non-transaction, {failed_count} failed")
 
             # Create audit log (non-blocking - must not crash sync)
             try:
@@ -232,6 +344,7 @@ class EmailSyncService:
                     details={
                         "discovered": discovered_count,
                         "parsed": parsed_count,
+                        "normalized": normalized_count,
                         "non_transaction": non_transaction_count,
                         "failed": failed_count
                     }
@@ -245,6 +358,7 @@ class EmailSyncService:
             return {
                 "discovered": discovered_count,
                 "parsed": parsed_count,
+                "normalized": normalized_count,
                 "non_transaction": non_transaction_count,
                 "failed": failed_count
             }

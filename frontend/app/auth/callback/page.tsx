@@ -2,23 +2,29 @@
 
 /**
  * OAuth callback page - handles redirect from Google OAuth.
- * Extracts token from URL, stores it, fetches user info, and redirects to dashboard.
+ * Extracts token from URL fragment (#token=...), stores it, fetches user info,
+ * and redirects to dashboard.
+ *
+ * The token arrives in the URL fragment rather than a query param so it is
+ * never sent to the server (no logs, no Referer header exposure).
  */
 
 import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 
 function CallbackContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { login } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleCallback = async () => {
-      // Extract token from URL query parameter
-      const token = searchParams.get('token');
+      // Extract token from URL fragment — never sent to the server.
+      // window.location.hash is "#token=<jwt>"; slice(1) removes the leading '#'.
+      const fragment = window.location.hash.slice(1);
+      const params = new URLSearchParams(fragment);
+      const token = params.get('token');
 
       if (!token) {
         setError('No authentication token received');
@@ -26,10 +32,7 @@ function CallbackContent() {
       }
 
       try {
-        // Store token and fetch user info
         await login(token);
-
-        // Redirect to dashboard
         router.push('/dashboard');
       } catch (err) {
         console.error('Authentication failed:', err);
@@ -38,7 +41,7 @@ function CallbackContent() {
     };
 
     handleCallback();
-  }, [searchParams, login, router]);
+  }, [login, router]);
 
   if (error) {
     return (

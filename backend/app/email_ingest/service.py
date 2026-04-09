@@ -9,6 +9,7 @@ from google.oauth2.credentials import Credentials
 
 from app.db.models import EmailAccount
 from app.email_ingest.encryption import TokenEncryption
+from app.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -144,14 +145,16 @@ class EmailAccountService:
             logger.warning(f"Email account {email_account.id} uses old broken encryption format")
             raise ValueError("Refresh token encrypted with incompatible format. Please reconnect Gmail account.")
 
-        # Create Credentials object
+        # Create Credentials object with full OAuth config for token refresh
         credentials = Credentials(
             token=access_token,
             refresh_token=refresh_token,
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=None,  # Not needed for API calls
-            client_secret=None
+            client_id=settings.GOOGLE_CLIENT_ID,  # REQUIRED for token refresh
+            client_secret=settings.GOOGLE_CLIENT_SECRET  # REQUIRED for token refresh
         )
+
+        logger.debug(f"[CREDENTIALS] Created credentials with client_id={settings.GOOGLE_CLIENT_ID[:20]}...")
 
         return credentials
 
