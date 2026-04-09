@@ -247,17 +247,21 @@ class EmailSyncService:
                 # Find appropriate parser using extracted email address
                 parser = ParserRegistry.get_parser(sender, subject)
                 if not parser:
-                    raw_email.parsing_status = "failed"
-                    raw_email.error_message = "No parser found for email"
-                    failed_count += 1
-                    logger.warning(
+                    # No parser = unrecognized email from a financial domain (marketing,
+                    # account alerts, etc.). Mark as non_transaction so the idempotency
+                    # check skips it on future syncs (unless a new parser is added that
+                    # now matches it — the re-queue logic handles that case).
+                    # Using "failed" here would extend the sync window back indefinitely.
+                    raw_email.parsing_status = "non_transaction"
+                    raw_email.error_message = "no_parser_found"
+                    non_transaction_count += 1
+                    logger.debug(
                         f"[SYNC] No parser matched — sender_email={sender!r}, subject={subject!r}"
                     )
-                    # Dump first 500 chars of body at DEBUG for pattern analysis
-                    logger.debug(f"[SYNC] Unmatched body preview: {body[:500]!r}")
                     continue
 
                 # Parse transaction
+                logger.info(f"[SYNC] Using parser={parser.provider!r} for subject={subject!r}")
                 try:
                     parse_result = parser.parse(subject, body)
                     raw_email.parser_used = parser.provider
@@ -283,7 +287,11 @@ class EmailSyncService:
 
                         raw_email.parsing_status = "success"
                         parsed_count += 1
-                        logger.debug(f"✅ Parsed transaction from {sender}: {parse_result.data.merchant_name} ${parse_result.data.amount}")
+                        logger.info(
+                            f"[SYNC] ✅ Parsed ({parser.provider}): "
+                            f"{parse_result.data.merchant_name} ${parse_result.data.amount} "
+                            f"type={parse_result.data.transaction_type} p2p={parse_result.data.p2p_source}"
+                        )
 
                         # Phase 2: Match to payment instrument and normalize
                         try:
@@ -294,19 +302,27 @@ class EmailSyncService:
                             )
                             if normalized_txn:
                                 normalized_count += 1
-                                logger.debug(f"✅ Normalized: {normalized_txn.merchant_normalized} ({normalized_txn.category})")
+                                logger.info(
+                                    f"[SYNC] ✅ Normalized: {normalized_txn.merchant_normalized} "
+                                    f"${normalized_txn.amount} category={normalized_txn.category} "
+                                    f"instrument={normalized_txn.payment_instrument_id}"
+                                )
                             else:
-                                logger.warning(f"⚠️  No payment instrument match for: {parsed_txn.merchant_name}")
+                                logger.warning(
+                                    f"[SYNC] ⚠️  No payment instrument match for: "
+                                    f"{parsed_txn.merchant_name} (type={parsed_txn.transaction_type} "
+                                    f"last4={parsed_txn.card_last_four} p2p={parsed_txn.p2p_source})"
+                                )
                         except Exception as norm_error:
                             # Normalization failure should not crash the sync
-                            logger.error(f"❌ Normalization failed for {parsed_txn.merchant_name}: {norm_error}")
+                            logger.error(f"[SYNC] ❌ Normalization failed for {parsed_txn.merchant_name}: {norm_error}", exc_info=True)
 
                     elif parse_result.status == "non_transaction":
                         # Email is from financial provider but contains no transaction (marketing, alerts, etc.)
                         raw_email.parsing_status = "non_transaction"
                         raw_email.error_message = parse_result.reason
                         non_transaction_count += 1
-                        logger.debug(f"ℹ️  Non-transaction email from {sender}: {parse_result.reason}")
+                        logger.info(f"[SYNC] ℹ️  Non-transaction ({parser.provider}): {parse_result.reason} subject={subject!r}")
 
                     elif parse_result.status == "parse_error":
                         # Email should contain transaction but parsing failed
@@ -314,10 +330,10 @@ class EmailSyncService:
                         raw_email.error_message = parse_result.reason
                         failed_count += 1
                         logger.warning(
-                            f"⚠️  Parse error for {msg_metadata['id']}: {parse_result.reason} "
-                            f"(sender={sender!r}, subject={subject!r})"
+                            f"[SYNC] ⚠️  Parse error: reason={parse_result.reason!r} "
+                            f"parser={parser.provider!r} subject={subject!r}"
                         )
-                        logger.debug(f"[SYNC] Parse-error body preview: {body[:500]!r}")
+                        logger.warning(f"[SYNC] Parse-error body preview: {body[:500]!r}")
 
                 except Exception as e:
                     # Unexpected exception during parsing (shouldn't happen with new contract)

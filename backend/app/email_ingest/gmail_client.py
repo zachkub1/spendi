@@ -108,20 +108,61 @@ class GmailClient:
     def _extract_body(self, payload: dict) -> str:
         """
         Extract message body from payload.
-        Handles plain text and multipart messages.
+        Recursively handles nested multipart (e.g. multipart/mixed → multipart/alternative → text/plain).
+        Preference order: text/plain > nested multipart > text/html (converted to plain text).
         """
-        if 'body' in payload and 'data' in payload['body']:
-            # Single part message
-            return base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
+        mime_type = payload.get('mimeType', '')
 
-        if 'parts' in payload:
-            # Multipart message - find text/plain or text/html
-            for part in payload['parts']:
-                if part['mimeType'] == 'text/plain':
-                    if 'data' in part['body']:
-                        return base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
-                elif part['mimeType'] == 'text/html' and 'data' in part['body']:
-                    # Fallback to HTML if no plain text
-                    return base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+        # Single part with inline data
+        if 'data' in payload.get('body', {}):
+            raw = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
+            return self._html_to_text(raw) if mime_type == 'text/html' else raw
+
+        parts = payload.get('parts', [])
+
+        # Pass 1: prefer text/plain at this level
+        for part in parts:
+            if part.get('mimeType') == 'text/plain' and 'data' in part.get('body', {}):
+                return base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+
+        # Pass 2: recurse into nested multipart containers
+        for part in parts:
+            if part.get('mimeType', '').startswith('multipart/'):
+                result = self._extract_body(part)
+                if result:
+                    return result
+
+        # Pass 3: fallback to HTML converted to plain text
+        for part in parts:
+            if part.get('mimeType') == 'text/html' and 'data' in part.get('body', {}):
+                raw = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+                return self._html_to_text(raw)
 
         return ""
+
+    @staticmethod
+    def _html_to_text(html: str) -> str:
+        """
+        Convert HTML email body to plain text suitable for regex parsing.
+        Preserves table cell boundaries as whitespace so field:value patterns still match.
+        """
+        import re
+        import html as html_lib
+
+        # Drop style/script blocks
+        html = re.sub(r'<(style|script)[^>]*>.*?</\1>', '', html, flags=re.DOTALL | re.IGNORECASE)
+        # Table rows → newline, cells → tab (keeps "Field\tValue" alignment)
+        html = re.sub(r'</tr\s*>', '\n', html, flags=re.IGNORECASE)
+        html = re.sub(r'<td[^>]*>', '\t', html, flags=re.IGNORECASE)
+        # Block elements → newline
+        html = re.sub(r'<(?:br|p|div|h[1-6])\b[^>]*/?>',  '\n', html, flags=re.IGNORECASE)
+        html = re.sub(r'</(?:p|div|h[1-6])>', '\n', html, flags=re.IGNORECASE)
+        # Strip remaining tags
+        html = re.sub(r'<[^>]+>', '', html)
+        # Decode entities (&amp; etc.)
+        html = html_lib.unescape(html)
+        # Collapse inline whitespace; leave newlines intact
+        html = re.sub(r'[ \t]+', ' ', html)
+        # Clean up lines
+        lines = [ln.strip() for ln in html.splitlines()]
+        return '\n'.join(ln for ln in lines if ln)
