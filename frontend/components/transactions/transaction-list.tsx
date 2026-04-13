@@ -86,7 +86,7 @@ function TransactionCard({ transaction }: { transaction: Transaction }) {
                   ` ••••${transaction.payment_instrument.last_four_digits}`}
               </span>
               <span>•</span>
-              <span className="px-2 py-0.5 bg-gray-100 rounded text-xs">
+              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs">
                 {transaction.category.replace(/_/g, " ")}
               </span>
             </div>
@@ -154,7 +154,7 @@ export function TransactionList({
           {[...Array(3)].map((_, i) => (
             <div
               key={i}
-              className="h-24 bg-gray-100 rounded-lg animate-pulse"
+              className="h-24 bg-slate-100 rounded-lg animate-pulse"
             ></div>
           ))}
         </div>
@@ -165,7 +165,7 @@ export function TransactionList({
         <div className="mt-6 text-center">
           <button
             onClick={onLoadMore}
-            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
           >
             Load More
           </button>
@@ -174,7 +174,7 @@ export function TransactionList({
 
       {/* End of Results */}
       {!loading && !hasMore && transactions.length > 0 && (
-        <div className="mt-6 text-center text-gray-600 text-sm">
+        <div className="mt-6 text-center text-slate-500 text-sm">
           No more transactions to load
         </div>
       )}

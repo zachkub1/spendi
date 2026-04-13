@@ -5,7 +5,7 @@ import { ProtectedRoute } from '@/components/auth/protected-route';
 import { apiClient } from '@/lib/api-client';
 import { TransactionList } from '@/components/transactions/transaction-list';
 import { TransactionFilters } from '@/components/transactions/transaction-filters';
-import { CATEGORY_META, getCategoryMeta } from '@/lib/category-meta';
+import { getCategoryMeta } from '@/lib/category-meta';
 import { P2PTab } from '@/components/p2p/p2p-tab';
 
 type ActiveTab = 'all' | 'zelle' | 'venmo';
@@ -164,15 +164,15 @@ export default function TransactionsPage() {
         </div>
 
         {/* ── Tab bar ───────────────────────────────────────────────────────── */}
-        <div className="flex border-b border-gray-200 mb-6">
+        <div className="flex border-b border-slate-200 mb-6">
           {(['all', 'zelle', 'venmo'] as ActiveTab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 activeTab === tab
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}
             >
               {tab === 'all' ? 'All Transactions' : tab === 'zelle' ? 'Zelle' : 'Venmo'}
@@ -190,7 +190,7 @@ export default function TransactionsPage() {
         {/* ── Category summary cards ─────────────────────────────────────────── */}
         {summary && summary.categories.length > 0 && (
           <div className="mb-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
               Browse by Category
             </p>
             <div className="flex flex-wrap gap-2">
@@ -199,8 +199,8 @@ export default function TransactionsPage() {
                 onClick={() => setFilters((prev) => ({ ...prev, category: undefined }))}
                 className={`px-4 py-2 rounded-full border text-sm font-medium transition-all ${
                   activeCategory === null
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    ? 'bg-indigo-700 text-white border-indigo-700'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-indigo-300'
                 }`}
               >
                 All ({summary.total_transactions})
@@ -228,7 +228,7 @@ export default function TransactionsPage() {
         {/* ── Card filter chips ──────────────────────────────────────────────── */}
         {instruments.length > 0 && (
           <div className="mb-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
               Filter by Card
             </p>
             <div className="flex flex-wrap gap-2">
@@ -236,8 +236,8 @@ export default function TransactionsPage() {
                 onClick={() => setFilters((prev) => ({ ...prev, payment_instrument_id: undefined }))}
                 className={`px-4 py-2 rounded-full border text-sm font-medium transition-all ${
                   !filters.payment_instrument_id
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                    ? 'bg-indigo-700 text-white border-indigo-700'
+                    : 'bg-white text-slate-700 border-slate-300 hover:border-indigo-300'
                 }`}
               >
                 All Cards
@@ -258,8 +258,8 @@ export default function TransactionsPage() {
                     }
                     className={`px-4 py-2 rounded-full border text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-slate-700 border-slate-300 hover:border-indigo-300'
                     }`}
                   >
                     {instrument.display_name}
@@ -283,10 +283,10 @@ export default function TransactionsPage() {
 
         {/* ── Empty state ────────────────────────────────────────────────────── */}
         {!loading && !error && transactions.length === 0 && (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-16 text-center">
+          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 py-16 text-center">
             {summary?.total_transactions === 0 ? (
               <>
-                <p className="text-lg font-medium text-gray-700 mb-2">No transactions yet</p>
+                <p className="text-lg font-medium text-slate-700 mb-2">No transactions yet</p>
                 <p className="text-sm text-gray-500">
                   Go to{' '}
                   <a href="/email" className="text-blue-600 hover:underline">

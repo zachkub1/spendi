@@ -46,13 +46,13 @@ export default function EmailPage() {
         {loading ? (
           <div className="text-center py-8">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
-            <p className="mt-2 text-gray-600">Loading email accounts...</p>
+            <p className="mt-2 text-slate-600">Loading email accounts...</p>
           </div>
         ) : accounts.length === 0 ? (
           /* ── No accounts connected ─────────────────────────────────────── */
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold mb-4">No Email Accounts Connected</h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-slate-600 mb-6">
               Connect your Gmail account to automatically ingest financial transactions from email.
             </p>
             <ConnectGmailButton onConnected={fetchAccounts} />

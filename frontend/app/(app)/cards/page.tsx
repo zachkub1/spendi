@@ -45,8 +45,8 @@ function CardArt({ name }: { name: string }) {
       className="w-full h-20 object-cover rounded-lg mb-3"
     />
   ) : (
-    <div className="w-full h-20 rounded-lg bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center mb-3">
-      <span className="text-xs text-gray-400">Card Art</span>
+    <div className="w-full h-20 rounded-lg bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center mb-3">
+      <span className="text-xs text-slate-400">Card Art</span>
     </div>
   );
 }
@@ -225,12 +225,12 @@ export default function CardsPage() {
   // ── Loading skeleton ──────────────────────────────────────────────────────
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-slate-50 p-8">
         <div className="max-w-5xl mx-auto animate-pulse space-y-8">
-          <div className="h-8 bg-gray-200 rounded w-1/4" />
+          <div className="h-8 bg-slate-200 rounded w-1/4" />
           <div className="grid grid-cols-3 gap-4">
             {[...Array(9)].map((_, i) => (
-              <div key={i} className="h-40 bg-gray-200 rounded-xl" />
+              <div key={i} className="h-40 bg-slate-200 rounded-xl" />
             ))}
           </div>
         </div>
@@ -244,20 +244,20 @@ export default function CardsPage() {
   const p2pInstruments   = instruments.filter((i) => i.type === "p2p_account" && i.status === "active");
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-5xl mx-auto space-y-10">
 
         {/* ── Page header ─────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Cards</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <h1 className="text-3xl font-bold text-slate-900">My Cards</h1>
+            <p className="mt-1 text-sm text-slate-500">
               Add and manage your credit cards
             </p>
           </div>
           <button
             onClick={() => setShowModal(true)}
-            className="text-sm px-4 py-2 border border-gray-300 rounded-md text-gray-600 hover:border-gray-400 hover:text-gray-800 transition-colors"
+            className="text-sm px-4 py-2 border border-slate-300 rounded-md text-slate-600 hover:border-indigo-400 hover:text-indigo-700 transition-colors"
           >
             + Add P2P / Debit
           </button>
@@ -266,7 +266,7 @@ export default function CardsPage() {
 {/* ── Saved cards ──────────────────────────────────────────────────── */}
         {/* ── Active cards ─────────────────────────────────────────────── */}
         <section>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-4">
             Active Cards
           </p>
 
@@ -279,12 +279,12 @@ export default function CardsPage() {
           {listLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-32 bg-gray-100 rounded-xl animate-pulse" />
+                <div key={i} className="h-32 bg-slate-100 rounded-xl animate-pulse" />
               ))}
             </div>
           ) : activeCards.length === 0 ? (
-            <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300">
-              <p className="text-sm text-gray-500">
+            <div className="text-center py-10 bg-white rounded-xl border border-dashed border-slate-300">
+              <p className="text-sm text-slate-500">
                 No active cards — pick one from the grid below or fill in the form.
               </p>
             </div>
@@ -293,12 +293,12 @@ export default function CardsPage() {
               {activeCards.map((instrument) => (
                 <Card key={instrument.id} className="p-4">
                   <CardArt name={instrument.display_name} />
-                  <p className="font-semibold text-gray-900 truncate">{instrument.display_name}</p>
+                  <p className="font-semibold text-slate-900 truncate">{instrument.display_name}</p>
                   {instrument.last_four_digits && (
-                    <p className="text-sm text-gray-500 mt-0.5">••••&nbsp;{instrument.last_four_digits}</p>
+                    <p className="text-sm text-slate-500 mt-0.5">••••&nbsp;{instrument.last_four_digits}</p>
                   )}
                   {instrument.network && (
-                    <span className={`mt-1.5 inline-block text-xs px-2 py-0.5 rounded font-medium capitalize ${NETWORK_STYLES[instrument.network] ?? "bg-gray-100 text-gray-600"}`}>
+                    <span className={`mt-1.5 inline-block text-xs px-2 py-0.5 rounded font-medium capitalize ${NETWORK_STYLES[instrument.network] ?? "bg-slate-100 text-slate-600"}`}>
                       {instrument.network}
                     </span>
                   )}
@@ -306,7 +306,7 @@ export default function CardsPage() {
                     <button
                       onClick={() => setEditingInstrument(instrument)}
                       title="Edit card"
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs bg-slate-100 text-slate-700 rounded hover:bg-slate-200 transition-colors"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" />
@@ -333,25 +333,25 @@ export default function CardsPage() {
         {/* ── Deactivated cards ────────────────────────────────────────────── */}
         {!listLoading && deactivatedCards.length > 0 && (
           <section>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-4">
               Deactivated Cards
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {deactivatedCards.map((instrument) => (
                 <Card key={instrument.id} className="p-4 opacity-50 grayscale">
                   <CardArt name={instrument.display_name} />
-                  <p className="font-semibold text-gray-900 truncate">{instrument.display_name}</p>
+                  <p className="font-semibold text-slate-900 truncate">{instrument.display_name}</p>
                   {instrument.last_four_digits && (
-                    <p className="text-sm text-gray-500 mt-0.5">••••&nbsp;{instrument.last_four_digits}</p>
+                    <p className="text-sm text-slate-500 mt-0.5">••••&nbsp;{instrument.last_four_digits}</p>
                   )}
                   <div className="mt-2 flex items-center gap-2">
-                    <span className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600">
+                    <span className="text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-600">
                       Deactivated
                     </span>
                   </div>
                   <button
                     onClick={() => handleReactivate(instrument.id)}
-                    className="mt-4 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                    className="mt-4 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100 transition-colors"
                   >
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -367,7 +367,7 @@ export default function CardsPage() {
         {/* ── P2P accounts ─────────────────────────────────────────────────── */}
         {p2pInstruments.length > 0 && (
           <section>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-4">
               P2P Accounts
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -375,11 +375,11 @@ export default function CardsPage() {
                 <Card key={instrument.id} className="p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">
+                      <p className="font-semibold text-slate-900 truncate">
                         {instrument.display_name}
                       </p>
                       {instrument.account_identifier && (
-                        <p className="text-sm text-gray-500 mt-0.5 truncate">
+                        <p className="text-sm text-slate-500 mt-0.5 truncate">
                           {instrument.account_identifier}
                         </p>
                       )}
@@ -388,7 +388,7 @@ export default function CardsPage() {
                       className={`shrink-0 text-xs px-2 py-1 rounded ${
                         instrument.status === "active"
                           ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-500"
+                          : "bg-gray-100 text-slate-500"
                       }`}
                     >
                       {instrument.status}
@@ -407,7 +407,7 @@ export default function CardsPage() {
         )}
         {/* ── Popular card picker ──────────────────────────────────────────── */}
         <section>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-4">
             Quick Add — Popular Cards
           </p>
           <div className="grid grid-cols-3 gap-4">
@@ -415,10 +415,10 @@ export default function CardsPage() {
               <button
                 key={idx}
                 onClick={() => handleTileClick(idx)}
-                className={`rounded-xl border-2 p-4 text-left transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`rounded-xl border-2 p-4 text-left transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                   selectedIdx === idx
-                    ? "border-blue-500 bg-blue-50 shadow-md"
-                    : "border-gray-200 bg-white hover:border-gray-300"
+                    ? "border-indigo-500 bg-indigo-50 shadow-md"
+                    : "border-slate-200 bg-white hover:border-indigo-300"
                 }`}
               >
                 {/* Card art — shows image if file exists in public/cards/, falls back to placeholder */}
@@ -429,7 +429,7 @@ export default function CardsPage() {
                 </p>
                 <span
                   className={`mt-1.5 inline-block text-xs px-2 py-0.5 rounded font-medium capitalize ${
-                    NETWORK_STYLES[card.network] ?? "bg-gray-100 text-gray-600"
+                    NETWORK_STYLES[card.network] ?? "bg-slate-100 text-slate-600"
                   }`}
                 >
                   {card.network}
@@ -441,7 +441,7 @@ export default function CardsPage() {
 
         {/* ── Add card form ────────────────────────────────────────────────── */}
         <section>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-4">
             {selectedIdx !== null
               ? `Adding: ${POPULAR_CARDS[selectedIdx].name}`
               : "Add a Card"}
@@ -452,7 +452,7 @@ export default function CardsPage() {
               <div>
                 <label
                   htmlFor="card-name"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-slate-700 mb-1"
                 >
                   Card Name *
                 </label>
@@ -462,11 +462,11 @@ export default function CardsPage() {
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="e.g., Chase Sapphire Preferred"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                   required
                 />
                 {selectedIdx !== null && (
-                  <p className="mt-1 text-xs text-blue-600">
+                  <p className="mt-1 text-xs text-indigo-600">
                     Auto-filled from selection — feel free to edit
                   </p>
                 )}
@@ -476,7 +476,7 @@ export default function CardsPage() {
               <div>
                 <label
                   htmlFor="card-last4"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-slate-700 mb-1"
                 >
                   Last 4 Digits *
                 </label>
@@ -490,7 +490,7 @@ export default function CardsPage() {
                   }
                   placeholder="1234"
                   maxLength={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                   required
                 />
               </div>
@@ -513,7 +513,7 @@ export default function CardsPage() {
                   <button
                     type="button"
                     onClick={handleClearSelection}
-                    className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                    className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-md hover:bg-slate-200 transition-colors"
                   >
                     Clear
                   </button>
@@ -521,7 +521,7 @@ export default function CardsPage() {
                 <button
                   type="submit"
                   disabled={formLoading}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
                 >
                   {formLoading ? "Adding…" : "Add Card"}
                 </button>
@@ -546,8 +546,8 @@ export default function CardsPage() {
       {pendingDeactivate && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Deactivate Card?</h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Deactivate Card?</h3>
+            <p className="text-sm text-slate-600 mb-6">
               <strong>{pendingDeactivate.display_name}</strong> will be removed from active
               use but past transactions will remain linked.
             </p>

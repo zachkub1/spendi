@@ -56,12 +56,12 @@ function StatCard({
       ? 'text-green-600'
       : highlight === 'negative'
       ? 'text-red-600'
-      : 'text-gray-900';
+      : 'text-slate-900';
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-5 py-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">{label}</p>
+    <div className="rounded-lg border border-slate-200 bg-white px-5 py-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">{label}</p>
       <p className={`text-2xl font-bold leading-none ${valueColor}`}>{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
     </div>
   );
 }
@@ -70,7 +70,7 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-3" aria-label="Loading">
       {[...Array(3)].map((_, i) => (
-        <div key={i} className="h-16 rounded-lg bg-gray-100 animate-pulse" />
+        <div key={i} className="h-16 rounded-lg bg-slate-100 animate-pulse" />
       ))}
     </div>
   );
@@ -149,7 +149,7 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold mb-1">
           Welcome back{user?.display_name ? `, ${user.display_name.split(' ')[0]}` : ''}
         </h1>
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm text-slate-500 mb-6">
           {new Date().toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'long',
@@ -167,28 +167,28 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-20 rounded-lg bg-gray-100 animate-pulse" />
+                <div key={i} className="h-20 rounded-lg bg-slate-100 animate-pulse" />
               ))}
             </div>
             <LoadingSkeleton />
           </div>
         ) : !hasData ? (
           /* ── Empty state ────────────────────────────────────────────────── */
-          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 py-16 text-center">
-            <p className="text-lg font-medium text-gray-700 mb-2">No transactions yet</p>
-            <p className="text-sm text-gray-500 mb-6">
+          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 py-16 text-center">
+            <p className="text-lg font-medium text-slate-700 mb-2">No transactions yet</p>
+            <p className="text-sm text-slate-500 mb-6">
               Connect your Gmail or load demo data to get started.
             </p>
             <div className="flex justify-center gap-3">
               <Link
                 href="/email"
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
               >
                 Connect Gmail
               </Link>
               <Link
                 href="/email"
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Load Demo Data
               </Link>
@@ -235,10 +235,10 @@ export default function DashboardPage() {
             {topCategories.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-gray-600">
+                  <h2 className="text-sm font-semibold text-slate-600">
                     Top Spending Categories
                   </h2>
-                  <Link href="/transactions" className="text-xs text-blue-600 hover:underline">
+                  <Link href="/transactions" className="text-xs text-indigo-600 hover:underline">
                     View all →
                   </Link>
                 </div>
@@ -269,12 +269,12 @@ export default function DashboardPage() {
             {recentTxns.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-gray-600">Recent Transactions</h2>
-                  <Link href="/transactions" className="text-xs text-blue-600 hover:underline">
+                  <h2 className="text-sm font-semibold text-slate-600">Recent Transactions</h2>
+                  <Link href="/transactions" className="text-xs text-indigo-600 hover:underline">
                     View all →
                   </Link>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white divide-y divide-gray-100">
+                <div className="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
                   {recentTxns.map((txn) => {
                     const meta = getCategoryMeta(txn.category);
                     const isReimbursed =
@@ -284,14 +284,14 @@ export default function DashboardPage() {
                       <Link
                         key={txn.id}
                         href={`/transactions/${txn.id}`}
-                        className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between px-4 py-3 hover:bg-indigo-50/50 transition-colors"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">
+                          <p className="font-medium text-slate-900 truncate">
                             {txn.merchant_normalized}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-slate-400">
                               {fmtDate(txn.transaction_date)}
                             </span>
                             <span
@@ -302,7 +302,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
                         <div className="text-right shrink-0 ml-4">
-                          <p className="font-semibold text-gray-900">
+                          <p className="font-semibold text-slate-900">
                             {fmt(parseFloat(txn.net_amount))}
                           </p>
                           {isReimbursed && (
@@ -322,7 +322,7 @@ export default function DashboardPage() {
 
             {/* ── Quick links ─────────────────────────────────────────────────── */}
             <section>
-              <h2 className="text-sm font-semibold text-gray-600 mb-3">Quick Links</h2>
+              <h2 className="text-sm font-semibold text-slate-600 mb-3">Quick Links</h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   {
@@ -347,12 +347,12 @@ export default function DashboardPage() {
                   <Link
                     key={href}
                     href={href}
-                    className="rounded-lg border border-gray-200 bg-white px-4 py-3 hover:shadow-sm hover:border-gray-300 transition-all"
+                    className="rounded-lg border border-slate-200 bg-white px-4 py-3 hover:shadow-sm hover:border-indigo-200 transition-all"
                   >
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-slate-900">
                       {icon} {label}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5">{sub}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{sub}</p>
                   </Link>
                 ))}
               </div>
