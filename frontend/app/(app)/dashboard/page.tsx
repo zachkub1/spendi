@@ -144,6 +144,7 @@ export default function DashboardPage() {
 
   return (
     <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-sky-50 to-blue-100">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <h1 className="text-3xl font-bold mb-1">
@@ -359,6 +360,7 @@ export default function DashboardPage() {
             </section>
           </div>
         )}
+      </div>
       </div>
     </ProtectedRoute>
   );

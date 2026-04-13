@@ -225,7 +225,7 @@ export default function CardsPage() {
   // ── Loading skeleton ──────────────────────────────────────────────────────
   if (authLoading || !user) {
     return (
-      <div className="min-h-screen bg-slate-50 p-8">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-sky-50 to-blue-100 p-8">
         <div className="max-w-5xl mx-auto animate-pulse space-y-8">
           <div className="h-8 bg-slate-200 rounded w-1/4" />
           <div className="grid grid-cols-3 gap-4">
@@ -244,7 +244,7 @@ export default function CardsPage() {
   const p2pInstruments   = instruments.filter((i) => i.type === "p2p_account" && i.status === "active");
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-sky-50 to-blue-100 p-8">
       <div className="max-w-5xl mx-auto space-y-10">
 
         {/* ── Page header ─────────────────────────────────────────────────── */}

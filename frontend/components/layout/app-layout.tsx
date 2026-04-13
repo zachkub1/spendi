@@ -17,7 +17,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="bg-white border-b border-slate-200">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-6">
-              <Link href="/" className="text-xl font-bold text-indigo-700 hover:text-indigo-900 transition-colors">
+              <Link href="/dashboard" className="text-xl font-bold text-indigo-700 hover:text-indigo-900 transition-colors">
                 Ledgerly
               </Link>
               <nav className="flex items-center gap-4 text-sm font-medium">

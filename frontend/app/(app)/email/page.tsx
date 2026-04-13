@@ -40,6 +40,7 @@ export default function EmailPage() {
 
   return (
     <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-sky-50 to-blue-100">
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6">Email Integration</h1>
 
@@ -84,6 +85,7 @@ export default function EmailPage() {
             <TransactionList refreshTrigger={txRefreshTrigger} />
           </div>
         )}
+      </div>
       </div>
     </ProtectedRoute>
   );
