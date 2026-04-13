@@ -8,6 +8,7 @@
 import Link from 'next/link';
 import { AuthProvider } from '@/lib/auth-context';
 import { UserMenu } from './user-menu';
+import { FeedbackButton } from '@/components/feedback/feedback-button';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -34,7 +35,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               </nav>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
+              <FeedbackButton />
               <UserMenu />
             </div>
           </div>
