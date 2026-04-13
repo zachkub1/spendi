@@ -1,12 +1,11 @@
 'use client';
 
 /**
- * Login page - full-bleed hero with the credit-card background image.
- * Color palette pulled from the image: sky-blue, indigo, violet, teal.
+ * Login page - full-bleed Spline 3D background with frosted-glass card.
  */
 
 import { useState } from 'react';
-import Image from 'next/image';
+import Spline from '@splinetool/react-spline/next';
 import { apiClient } from '@/lib/api-client';
 
 function GoogleIcon() {
@@ -53,18 +52,10 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden">
 
-      {/* ── Full-bleed background image ────────────────────────────────────── */}
-      <Image
-        src="/login-bg.png"
-        alt=""
-        fill
-        priority
-        className="object-cover"
-        sizes="100vw"
-      />
-
-      {/* ── Soft overlay so the card doesn't fight the background ─────────── */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-100/60 via-indigo-100/40 to-sky-200/50 backdrop-blur-[2px]" />
+      {/* ── Full-bleed Spline 3D background ───────────────────────────────── */}
+      <div className="absolute inset-0 pointer-events-none">
+        <Spline scene="https://prod.spline.design/od8n5uOYqkqQ4NJy/scene.splinecode" />
+      </div>
 
       {/* ── Frosted-glass login card ───────────────────────────────────────── */}
       <div className="relative z-10 w-full max-w-sm mx-4">

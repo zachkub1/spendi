@@ -28,26 +28,26 @@ function Navbar() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
           </svg>
         </div>
-        <span className="text-lg font-bold text-indigo-900 drop-shadow-sm">Ledgerly</span>
+        <span className="text-lg font-bold text-indigo-100 drop-shadow-sm">Ledgerly</span>
       </div>
 
       {/* Nav links + CTA */}
       <div className="flex items-center gap-3">
         <a
           href="#about"
-          className="hidden sm:block text-sm font-medium text-indigo-900 hover:text-indigo-500 transition-colors px-3 py-1.5"
+          className="hidden sm:block text-sm font-medium text-indigo-100 hover:text-indigo-500 transition-colors px-3 py-1.5"
         >
           About
         </a>
         <a
           href="#features"
-          className="hidden sm:block text-sm font-medium text-indigo-900 hover:text-indigo-500 transition-colors px-3 py-1.5"
+          className="hidden sm:block text-sm font-medium text-indigo-100 hover:text-indigo-500 transition-colors px-3 py-1.5"
         >
           Features
         </a>
         <Link
           href="/login"
-          className="text-sm font-medium text-indigo-900 hover:text-indigo-500 transition-colors px-4 py-2 rounded-lg"
+          className="text-sm font-medium text-indigo-100 hover:text-indigo-500 transition-colors px-4 py-2 rounded-lg"
           style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)' }}
         >
           Log in
@@ -193,7 +193,7 @@ export default function LandingPage() {
               </p>
               <p>
                 Existing apps like Mint asked for bank credentials, had intrusive ads,
-                and shares data with partners. Spreadsheets required manual entry every
+                and share data with partners. Spreadsheets required manual entry every
                 single time. Neither felt right for something as sensitive as financial data.
               </p>
               <p>
