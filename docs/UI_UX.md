@@ -1,4 +1,4 @@
-# UI/UX Design: Ledgerly
+# UI/UX Design: Spendi
 **Version**: 1.0
 **Last Updated**: 2026-02-11
 **Status**: Draft
@@ -8,7 +8,7 @@
 
 ## Overview
 
-Ledgerly's UI is designed around three core principles:
+Spendi's UI is designed around three core principles:
 
 1. **Financial Clarity > Aesthetics**: Users should instantly understand where their money went and why
 2. **Explainability**: Every number, calculation, and insight is traceable back to source data
@@ -112,7 +112,7 @@ Hover tooltip:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ Ledgerly                                                │
+│ Spendi                                                │
 └─────────────────────────────────────────────────────────┘
            │
            ├── Dashboard (/)
@@ -163,7 +163,7 @@ Hover tooltip:
 **Layout**:
 ```
 ┌────────────────────────────────────────────────────────────┐
-│ [☰] Ledgerly                    [👤] John  [Feb 2026 ▼]   │
+│ [☰] Spendi                    [👤] John  [Feb 2026 ▼]   │
 ├────────────────────────────────────────────────────────────┤
 │                                                            │
 │ ┌────────────────────────────────────────────────────────┐│
@@ -572,7 +572,7 @@ Hover tooltip:
 │ │ How Email Sync Works                                   ││
 │ ├────────────────────────────────────────────────────────┤│
 │ │                                                        ││
-│ │ Ledgerly reads transaction emails from your inbox to   ││
+│ │ Spendi reads transaction emails from your inbox to   ││
 │ │ automatically track purchases and reimbursements.      ││
 │ │                                                        ││
 │ │ ✅ What we do:                                         ││
@@ -1221,4 +1221,4 @@ export function DarkModeToggle() {
 
 ---
 
-**Questions? Contact**: product@ledgerly.app
+**Questions? Contact**: product@spendi.app

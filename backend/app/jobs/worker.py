@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize Celery app
 celery_app = Celery(
-    'ledgerly',
+    'spendi',
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
     include=['app.jobs.tasks']  # Import task modules

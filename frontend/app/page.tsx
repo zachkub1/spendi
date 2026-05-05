@@ -28,7 +28,7 @@ function Navbar() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
           </svg>
         </div>
-        <span className="text-lg font-bold text-indigo-100 drop-shadow-sm">Ledgerly</span>
+        <span className="text-lg font-bold text-indigo-100 drop-shadow-sm">Spendi</span>
       </div>
 
       {/* Nav links + CTA */}
@@ -128,7 +128,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="mt-6 text-lg text-white/75 max-w-xl leading-relaxed">
-          Ledgerly connects to your Gmail and automatically extracts transactions from
+          Spendi connects to your Gmail and automatically extracts transactions from
           any transactional data, Venmo, Zelle and more. No manual entry, no spreadsheets.
         </p>
 
@@ -197,7 +197,7 @@ export default function LandingPage() {
                 single time. Neither felt right for something as sensitive as financial data.
               </p>
               <p>
-                So I built Ledgerly. It reads the transaction emails your bank already sends
+                So I built Spendi. It reads the transaction emails your bank already sends
                 you, parses them automatically, and organizes everything into a clean
                 dashboard — without ever seeing your banking credentials. Your data lives in
                 your own database, on your terms.
@@ -263,7 +263,7 @@ export default function LandingPage() {
         style={{ borderTop: '1px solid rgba(255,255,255,0.15)' }}
       >
         <p className="text-sm text-white/40">
-          © {new Date().getFullYear()} Ledgerly · Built with privacy in mind
+          © {new Date().getFullYear()} Spendi · Built with privacy in mind
         </p>
       </footer>
     </div>

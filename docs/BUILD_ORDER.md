@@ -1,4 +1,4 @@
-# Implementation Roadmap: Ledgerly
+# Implementation Roadmap: Spendi
 **Version**: 1.0
 **Last Updated**: 2026-02-11
 **Status**: Draft
@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document provides a step-by-step implementation roadmap for building Ledgerly MVP. The project is divided into 5 major phases, each with clear deliverables, testing requirements, and security checkpoints.
+This document provides a step-by-step implementation roadmap for building Spendi MVP. The project is divided into 5 major phases, each with clear deliverables, testing requirements, and security checkpoints.
 
 **Total Timeline**: 12-15 weeks (3-4 months)
 
@@ -750,4 +750,4 @@ Use SQLAlchemy for DB queries. Add unit tests with pytest.
 
 ---
 
-**Questions? Contact**: engineering@ledgerly.app
+**Questions? Contact**: engineering@spendi.app

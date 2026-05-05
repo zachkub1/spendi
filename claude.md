@@ -1,7 +1,7 @@
-Ledgerly - Smart Personal Finance Tracker
+Spendi - Smart Personal Finance Tracker
 Overview
 
-Ledgerly is a privacy-first personal finance tracker that automatically ingests financial data from email (transaction receipts, statements, rewards notifications), reconciles transactions across accounts, and provides explainable insights into spending patterns and optimization opportunities.
+Spendi is a privacy-first personal finance tracker that automatically ingests financial data from email (transaction receipts, statements, rewards notifications), reconciles transactions across accounts, and provides explainable insights into spending patterns and optimization opportunities.
 
 🧠 Engineering Philosophy (CRITICAL)
 

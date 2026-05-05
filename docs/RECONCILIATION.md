@@ -1,4 +1,4 @@
-# Transaction Reconciliation System: Ledgerly
+# Transaction Reconciliation System: Spendi
 **Version**: 1.0
 **Last Updated**: 2026-02-11
 **Status**: Draft
@@ -1491,4 +1491,4 @@ def test_auto_linking_flow(db_session):
 
 ---
 
-**Questions? Contact**: engineering@ledgerly.app
+**Questions? Contact**: engineering@spendi.app

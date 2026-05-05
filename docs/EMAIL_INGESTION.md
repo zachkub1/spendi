@@ -1,4 +1,4 @@
-# Email Ingestion System: Ledgerly
+# Email Ingestion System: Spendi
 **Version**: 1.0
 **Last Updated**: 2026-02-11
 **Status**: Draft
@@ -1085,7 +1085,7 @@ from app.db.session import get_db
 from app.db.models import EmailAccount
 from datetime import datetime
 
-app = Celery('ledgerly', broker='redis://localhost:6379/0')
+app = Celery('spendi', broker='redis://localhost:6379/0')
 
 @app.task
 def sync_all_email_accounts():
@@ -1317,4 +1317,4 @@ View on Venmo
 
 ---
 
-**Questions? Contact**: engineering@ledgerly.app
+**Questions? Contact**: engineering@spendi.app

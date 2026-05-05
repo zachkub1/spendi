@@ -19,7 +19,7 @@ ENVIRONMENT=development
 API_BASE_URL=http://localhost:8000
 FRONTEND_URL=http://localhost:3000
 
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ledgerly
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/spendi
 REDIS_URL=redis://localhost:6379/0
 
 # Generate a secure key for production
@@ -107,7 +107,7 @@ Expected output:
    - Should redirect back to `/dashboard`
 
 3. **Verify Session**
-   - Check localStorage for `ledgerly_auth_token`
+   - Check localStorage for `spendi_auth_token`
    - UserMenu should show your email in top-right
    - Refresh page → should stay authenticated
 
@@ -137,7 +137,7 @@ Expected output:
 2. **Verify Encryption**
    ```bash
    # Check database - tokens should be encrypted
-   docker exec -it ledgerly-db psql -U postgres -d ledgerly \
+   docker exec -it spendi-db psql -U postgres -d spendi \
      -c "SELECT email_address, substring(oauth_access_token, 1, 20) FROM email_accounts;"
    ```
    - Should see base64-encoded encrypted data, NOT plaintext tokens
@@ -172,11 +172,11 @@ Expected output:
 3. **Verify Database**
    ```bash
    # Check RawEmail records
-   docker exec -it ledgerly-db psql -U postgres -d ledgerly \
+   docker exec -it spendi-db psql -U postgres -d spendi \
      -c "SELECT message_id, subject, parsing_status, parser_used FROM raw_emails LIMIT 5;"
 
    # Check ParsedTransaction records
-   docker exec -it ledgerly-db psql -U postgres -d ledgerly \
+   docker exec -it spendi-db psql -U postgres -d spendi \
      -c "SELECT merchant_name, amount, transaction_date, card_last_four, confidence_score FROM parsed_transactions LIMIT 5;"
    ```
 

@@ -1,0 +1,91 @@
+version: "3.9"
+
+# ── Production stack — runs on a single EC2 t2.micro ─────────────────────────
+#
+# What runs here:
+#   backend      — FastAPI (port 8000, internal only)
+#   celery-worker — background email sync
+#   celery-beat  — hourly scheduler
+#   frontend     — Next.js (port 3000, internal only)
+#   redis        — Celery broker + result backend (no ElastiCache needed)
+#
+# PostgreSQL runs on RDS (free tier) — not in this file.
+# Caddy runs on the host (not Docker) so it can manage SSL certs.
+#
+# Deploy:
+#   scp docker-compose.prod.yml backend/.env ec2-user@<IP>:/opt/spendi/
+#   ssh ec2-user@<IP> "cd /opt/spendi && docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d"
+
+services:
+  # ── Redis (in-container — saves $12/mo vs ElastiCache) ───────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning --requirepass "${REDIS_PASSWORD}"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  # ── FastAPI backend ───────────────────────────────────────────────────────────
+  backend:
+    image: ${BACKEND_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ENVIRONMENT: production
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+    ports:
+      - "127.0.0.1:8000:8000"    # localhost-only; Caddy proxies externally
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Celery worker ─────────────────────────────────────────────────────────────
+  celery-worker:
+    image: ${BACKEND_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ENVIRONMENT: production
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+    command: ["celery", "-A", "app.jobs.worker.celery_app", "worker",
+              "--loglevel=info", "--concurrency=2", "--max-tasks-per-child=100"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ── Celery Beat ───────────────────────────────────────────────────────────────
+  celery-beat:
+    image: ${BACKEND_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ENVIRONMENT: production
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+    command: ["celery", "-A", "app.jobs.worker.celery_app", "beat", "--loglevel=info"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ── Next.js frontend ──────────────────────────────────────────────────────────
+  frontend:
+    image: ${FRONTEND_IMAGE}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"    # localhost-only; Caddy proxies externally
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${API_BASE_URL}
+
+volumes:
+  redis_data:

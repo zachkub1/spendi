@@ -80,7 +80,7 @@ export default function LoginPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-800">Ledgerly</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-800">Spendi</h1>
             <p className="mt-1 text-sm text-slate-500">Smart Personal Finance Tracker</p>
           </div>
 

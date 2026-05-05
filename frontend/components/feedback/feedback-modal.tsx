@@ -150,7 +150,7 @@ export function FeedbackModal({ isOpen, onClose }: Props) {
               Send Feedback
             </h2>
             <p className="text-sm text-slate-500 mt-0.5">
-              Help us improve Ledgerly
+              Help us improve Spendi
             </p>
           </div>
           <button
@@ -173,7 +173,7 @@ export function FeedbackModal({ isOpen, onClose }: Props) {
               </svg>
             </div>
             <p className="text-lg font-semibold text-slate-900">Feedback submitted!</p>
-            <p className="text-sm text-slate-500 mt-1">Thanks for helping make Ledgerly better.</p>
+            <p className="text-sm text-slate-500 mt-1">Thanks for helping make Spendi better.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} noValidate>

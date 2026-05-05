@@ -1,4 +1,4 @@
-# Product Requirements Document: Ledgerly
+# Product Requirements Document: Spendi
 **Version**: 1.0
 **Last Updated**: 2026-02-11
 **Status**: Draft
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Ledgerly is a privacy-first personal finance tracker that automatically ingests financial transaction data from email, normalizes it into a unified ledger, and provides explainable insights into spending, reimbursements, and credit card rewards optimization. Unlike traditional finance apps that require bank account linking, Ledgerly operates read-only by parsing transaction notifications from email, ensuring users maintain full control of their financial credentials.
+Spendi is a privacy-first personal finance tracker that automatically ingests financial transaction data from email, normalizes it into a unified ledger, and provides explainable insights into spending, reimbursements, and credit card rewards optimization. Unlike traditional finance apps that require bank account linking, Spendi operates read-only by parsing transaction notifications from email, ensuring users maintain full control of their financial credentials.
 
 **Target Users**: Individuals who:
 - Manage multiple credit cards and payment methods
@@ -780,4 +780,4 @@ Each transaction record includes:
 4. Design API contracts (OpenAPI spec)
 5. Begin Milestone 1 (Backend Core)
 
-**Questions? Contact**: product@ledgerly.app
+**Questions? Contact**: product@spendi.app

@@ -20,7 +20,7 @@ load_dotenv()
 config = context.config
 
 # Override sqlalchemy.url with value from environment variable
-database_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ledgerly")
+database_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/spendi")
 config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
