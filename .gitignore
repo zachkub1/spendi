@@ -40,4 +40,5 @@ Thumbs.db
 *.seed
 *.log
 
+#demo data
 demo.txt

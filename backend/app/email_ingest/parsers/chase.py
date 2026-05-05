@@ -1,8 +1,12 @@
 """
 Chase credit card transaction email parser.
+
+Handles the current Chase alert format:
+  Subject : You made a $x.xx transaction with MERCHANT NAME
+  Body    : table with Account / Date / Merchant / Amount rows
 """
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from .base import EmailParser, ParsedTransactionData, ParseResult
 
@@ -12,72 +16,78 @@ class ChaseParser(EmailParser):
 
     provider = "chase"
 
-    # Regex patterns for Chase emails
     SENDER_PATTERN = r"@chase\.com$|@alerts\.chase\.com$"
-    SUBJECT_PATTERN = r"Your \$[\d,]+\.\d{2} transaction"
+
+    # Matches both current ("You made a $x.xx transaction")
+    # and legacy ("Your $x.xx transaction") subject formats.
+    SUBJECT_PATTERN = r"You made a \$[\d,]+\.\d{2} transaction|Your \$[\d,]+\.\d{2} transaction"
+
     AMOUNT_PATTERN = r"\$(\d{1,3}(?:,\d{3})*\.\d{2})"
-    MERCHANT_PATTERN = r"transaction at (.+?) on"
-    DATE_PATTERN = r"on (\d{2}/\d{2}/\d{4})"
-    CARD_PATTERN = r"ending in (\d{4})"
+
+    # Body table rows:  "Merchant\t<name>" or "Merchant: <name>"
+    MERCHANT_PATTERN = r"Merchant[:\t ]+(.+?)(?:\r?\n|$)"
+
+    # "Date\tApr 9, 2026 at 6:54 PM ET"
+    DATE_PATTERN = r"Date[:\t ]+(\w{3}\s+\d{1,2},\s+\d{4})"
+
+    # "Chase Freedom Rise Visa (...3449)" → captures "3449"
+    CARD_PATTERN = r"\(\.\.\.(\d{4})\)|ending in (\d{4})"
 
     def can_parse(self, sender: str, subject: str) -> bool:
-        """Check if email is from Chase and matches transaction pattern."""
         return bool(
             re.search(self.SENDER_PATTERN, sender, re.IGNORECASE) and
-            re.search(self.SUBJECT_PATTERN, subject)
+            re.search(self.SUBJECT_PATTERN, subject, re.IGNORECASE)
         )
 
     def parse(self, subject: str, body: str) -> ParseResult:
-        """Extract transaction data from Chase email."""
         try:
-            # Extract amount from subject
+            # Amount from subject
             amount_match = re.search(self.AMOUNT_PATTERN, subject)
             if not amount_match:
-                return ParseResult(
-                    status="non_transaction",
-                    reason="no_amount_in_subject"
-                )
+                return ParseResult(status="non_transaction", reason="no_amount_in_subject")
             amount = Decimal(amount_match.group(1).replace(',', ''))
 
-            # Extract merchant from body
+            # Merchant from body table
             merchant_match = re.search(self.MERCHANT_PATTERN, body)
             if not merchant_match:
-                return ParseResult(
-                    status="parse_error",
-                    reason="amount_found_but_no_merchant"
-                )
-            merchant = merchant_match.group(1).strip()
+                # Fallback: merchant sometimes appended to subject after "with"
+                subject_merchant = re.search(r"transaction with (.+)$", subject, re.IGNORECASE)
+                if subject_merchant:
+                    merchant = subject_merchant.group(1).strip()
+                else:
+                    return ParseResult(status="parse_error", reason="no_merchant_found")
+            else:
+                merchant = merchant_match.group(1).strip()
 
-            # Extract date
+            # Date from body ("Apr 9, 2026 at ...")
             date_match = re.search(self.DATE_PATTERN, body)
-            if not date_match:
-                return ParseResult(
-                    status="parse_error",
-                    reason="amount_found_but_no_date"
-                )
-            transaction_date = datetime.strptime(date_match.group(1), "%m/%d/%Y")
+            if date_match:
+                try:
+                    transaction_date = datetime.strptime(date_match.group(1).strip(), "%b %d, %Y")
+                    transaction_date = transaction_date.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    transaction_date = datetime.now(timezone.utc)
+            else:
+                transaction_date = datetime.now(timezone.utc)
 
-            # Extract card last 4 digits (optional)
+            # Card last 4 — "(...3449)" or legacy "ending in 3449"
             card_match = re.search(self.CARD_PATTERN, body)
-            card_last_four = card_match.group(1) if card_match else None
-
-            transaction_data = ParsedTransactionData(
-                merchant_name=merchant,
-                amount=amount,
-                transaction_date=transaction_date,
-                card_last_four=card_last_four,
-                transaction_type="purchase",
-                confidence_score=95.0  # High confidence for Chase
-            )
+            if card_match:
+                card_last_four = card_match.group(1) or card_match.group(2)
+            else:
+                card_last_four = None
 
             return ParseResult(
                 status="transaction",
-                data=transaction_data
+                data=ParsedTransactionData(
+                    merchant_name=merchant,
+                    amount=amount,
+                    transaction_date=transaction_date,
+                    card_last_four=card_last_four,
+                    transaction_type="purchase",
+                    confidence_score=95.0,
+                )
             )
 
         except Exception as e:
-            # Unexpected error - log but don't crash
-            return ParseResult(
-                status="parse_error",
-                reason=f"unexpected_error: {str(e)}"
-            )
+            return ParseResult(status="parse_error", reason=f"unexpected_error: {str(e)}")

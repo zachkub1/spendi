@@ -1,4 +1,4 @@
-# Credit Card Rewards Engine: Ledgerly
+# Credit Card Rewards Engine: Spendi
 **Version**: 1.0
 **Last Updated**: 2026-02-11
 **Status**: Draft
@@ -1221,7 +1221,7 @@ def recalculate_rewards(
 from celery import Celery
 from app.rewards.calculator import calculate_rewards
 
-app = Celery('ledgerly', broker='redis://localhost:6379/0')
+app = Celery('spendi', broker='redis://localhost:6379/0')
 
 @app.task
 def calculate_rewards_for_transaction(transaction_id: str):
@@ -1351,4 +1351,4 @@ def test_time_bound_promotion(db_session):
 
 ---
 
-**Questions? Contact**: engineering@ledgerly.app
+**Questions? Contact**: engineering@spendi.app

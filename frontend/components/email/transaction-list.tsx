@@ -57,13 +57,13 @@ function ParsedTransactionCard({ txn }: { txn: ParsedTransaction }) {
       <div className="flex items-start justify-between gap-4">
         {/* Left column: merchant + metadata row */}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900 truncate">{displayName}</p>
+          <p className="font-semibold text-slate-900 truncate">{displayName}</p>
           {/* Raw parser name shown as secondary label when it differs from normalized */}
           {showRawName && (
-            <p className="text-xs text-gray-400 truncate">{txn.merchant_name}</p>
+            <p className="text-xs text-slate-400 truncate">{txn.merchant_name}</p>
           )}
 
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500">
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
             <span>{formatDate(txn.transaction_date)}</span>
 
             {txn.card_last_four && (
@@ -84,9 +84,9 @@ function ParsedTransactionCard({ txn }: { txn: ParsedTransaction }) {
 
         {/* Right column: amount + type + confidence */}
         <div className="text-right shrink-0">
-          <p className="text-lg font-bold text-gray-900">{formatCurrency(txn.amount)}</p>
-          <p className="text-xs text-gray-400 capitalize mt-0.5">{txn.transaction_type}</p>
-          <p className="text-xs text-gray-400">{txn.confidence_score.toFixed(0)}% confident</p>
+          <p className="text-lg font-bold text-slate-900">{formatCurrency(txn.amount)}</p>
+          <p className="text-xs text-slate-400 capitalize mt-0.5">{txn.transaction_type}</p>
+          <p className="text-xs text-slate-400">{txn.confidence_score.toFixed(0)}% confident</p>
         </div>
       </div>
     </Card>
@@ -97,7 +97,7 @@ function LoadingSkeleton() {
   return (
     <div className="space-y-3" aria-label="Loading transactions">
       {[...Array(3)].map((_, i) => (
-        <div key={i} className="h-20 bg-gray-100 rounded-lg animate-pulse" />
+        <div key={i} className="h-20 bg-slate-100 rounded-lg animate-pulse" />
       ))}
     </div>
   );
@@ -175,7 +175,7 @@ export function TransactionList({ accountId, refreshTrigger }: TransactionListPr
 
   if (transactions.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-slate-500">
         <p className="text-lg font-medium">No transactions found</p>
         <p className="text-sm mt-1">Sync your email to discover transactions.</p>
       </div>
@@ -189,7 +189,7 @@ export function TransactionList({ accountId, refreshTrigger }: TransactionListPr
       {/* Header: title + count */}
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-lg font-semibold">Parsed Transactions</h3>
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-slate-500">
           {transactions.length} of {total}
         </span>
       </div>
@@ -219,7 +219,7 @@ export function TransactionList({ accountId, refreshTrigger }: TransactionListPr
 
       {/* End of results */}
       {!loadingMore && !hasMore && (
-        <p className="mt-6 text-center text-sm text-gray-500">
+        <p className="mt-6 text-center text-sm text-slate-500">
           All {total} transaction{total !== 1 ? 's' : ''} loaded
         </p>
       )}

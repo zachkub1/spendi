@@ -14,13 +14,13 @@ class Settings:
 
     # Application
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
-    APP_NAME: str = "Ledgerly"
+    APP_NAME: str = "Spendi"
     API_BASE_URL: str = os.getenv("API_BASE_URL", "http://localhost:8000")
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
     # Database
     DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ledgerly"
+        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/spendi"
     )
 
     # Redis

@@ -40,19 +40,20 @@ export default function EmailPage() {
 
   return (
     <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-sky-50 to-blue-100">
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6">Email Integration</h1>
 
         {loading ? (
           <div className="text-center py-8">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
-            <p className="mt-2 text-gray-600">Loading email accounts...</p>
+            <p className="mt-2 text-slate-600">Loading email accounts...</p>
           </div>
         ) : accounts.length === 0 ? (
           /* ── No accounts connected ─────────────────────────────────────── */
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold mb-4">No Email Accounts Connected</h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-slate-600 mb-6">
               Connect your Gmail account to automatically ingest financial transactions from email.
             </p>
             <ConnectGmailButton onConnected={fetchAccounts} />
@@ -84,6 +85,7 @@ export default function EmailPage() {
             <TransactionList refreshTrigger={txRefreshTrigger} />
           </div>
         )}
+      </div>
       </div>
     </ProtectedRoute>
   );

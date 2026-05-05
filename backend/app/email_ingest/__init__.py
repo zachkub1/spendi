@@ -1,4 +1,4 @@
 """
-Email ingestion module for Ledgerly.
+Email ingestion module for Spendi.
 Handles Gmail OAuth, email discovery, and transaction parsing.
 """

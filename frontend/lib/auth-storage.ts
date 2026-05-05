@@ -3,7 +3,7 @@
  * Provides functions to get, set, clear, and validate tokens.
  */
 
-const TOKEN_KEY = 'ledgerly_auth_token';
+const TOKEN_KEY = 'spendi_auth_token';
 
 /**
  * Get the JWT token from localStorage.

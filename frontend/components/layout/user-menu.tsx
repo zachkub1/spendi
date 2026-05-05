@@ -37,7 +37,7 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="focus:outline-none focus:ring-2 focus:ring-gray-400 rounded-full">
+        <button className="focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded-full">
           <Avatar>
             <AvatarFallback>
               {getInitials(user.display_name, user.email)}

@@ -1,4 +1,4 @@
-# Core Domain Model: Ledgerly
+# Core Domain Model: Spendi
 **Version**: 1.0
 **Last Updated**: 2026-02-11
 **Status**: Draft
@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document defines the core domain entities, relationships, and data structures for Ledgerly. The model is designed around three key principles:
+This document defines the core domain entities, relationships, and data structures for Spendi. The model is designed around three key principles:
 
 1. **Immutability**: Transactions are append-only; modifications create new records with audit trails
 2. **Explainability**: Every state change, categorization, and calculation is traceable
@@ -194,7 +194,7 @@ Stores metadata about emails received from financial institutions. **Email conte
 | `sender_email`       | String    | Not Null                    | Sender email address (e.g., `alerts@chase.com`)       |
 | `subject`            | String    | Not Null                    | Email subject line                                    |
 | `received_at`        | Timestamp | Not Null                    | When email was received (from email headers)          |
-| `synced_at`          | Timestamp | Not Null                    | When email was synced into Ledgerly                   |
+| `synced_at`          | Timestamp | Not Null                    | When email was synced into Spendi                   |
 | `parsing_status`     | Enum      | Default: `pending`          | Status: `pending`, `success`, `failed`, `skipped`     |
 | `parsing_error`      | String    | Nullable                    | Error message if parsing failed                       |
 | `parsed_at`          | Timestamp | Nullable                    | When email was successfully parsed                    |
@@ -1308,4 +1308,4 @@ ORDER BY missed_points DESC;
 
 ---
 
-**Questions? Contact**: engineering@ledgerly.app
+**Questions? Contact**: engineering@spendi.app

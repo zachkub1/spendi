@@ -301,3 +301,31 @@ class NormalizedTransaction(Base):
 
     def __repr__(self):
         return f"<NormalizedTransaction {self.merchant_normalized} ${self.amount} ({self.category})>"
+
+
+class FeedbackType(str, enum.Enum):
+    """Feedback submission type."""
+    BUG = "bug"
+    SUGGESTION = "suggestion"
+    CLASSIFICATION_ISSUE = "classification_issue"
+
+
+class Feedback(Base):
+    """
+    Feedback - stores user-submitted feedback, bug reports, and classification issues.
+    All text fields are sanitized before storage.
+    """
+    __tablename__ = "feedback"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    type = Column(SQLEnum(FeedbackType), nullable=False)
+    message = Column(Text, nullable=False)
+    transaction_example = Column(Text, nullable=True)  # Only for classification_issue
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Relationships
+    user = relationship("User")
+
+    def __repr__(self):
+        return f"<Feedback {self.type} by {self.user_id}>"

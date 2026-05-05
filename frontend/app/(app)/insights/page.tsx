@@ -8,7 +8,7 @@ import { ReimbursementChart } from '@/components/insights/reimbursement-chart';
 import type { MonthlyInsightItem, YearlyInsightItem, TransactionCategory } from '@shared/types/transaction';
 import { CATEGORY_META, getCategoryMeta } from '@/lib/category-meta';
 
-const ACTIVE_PILL = 'bg-gray-900 text-white border-gray-900';
+const ACTIVE_PILL = 'bg-indigo-700 text-white border-indigo-700';
 const ALL_CATEGORY_KEYS = Object.keys(CATEGORY_META) as TransactionCategory[];
 
 // ─── Year range helpers ───────────────────────────────────────────────────────
@@ -40,10 +40,10 @@ interface SummaryData {
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-5 py-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">{label}</p>
-      <p className="text-2xl font-bold text-gray-900 leading-none">{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+    <div className="rounded-lg border border-slate-200 bg-white px-5 py-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1">{label}</p>
+      <p className="text-2xl font-bold text-slate-800 leading-none">{value}</p>
+      {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
     </div>
   );
 }
@@ -103,6 +103,7 @@ export default function InsightsPage() {
 
   return (
     <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-sky-50 to-blue-100">
       <div className="container mx-auto px-4 py-8">
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
@@ -144,11 +145,11 @@ export default function InsightsPage() {
         {/* ── Filters ─────────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">Year</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Year</label>
             <select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {YEAR_OPTIONS.map((y) => (
                 <option key={y} value={y}>{y}</option>
@@ -157,11 +158,11 @@ export default function InsightsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">Category</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Category</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as TransactionCategory | '')}
-              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">All categories</option>
               {ALL_CATEGORY_KEYS.map((cat) => (
@@ -175,13 +176,13 @@ export default function InsightsPage() {
 
         {/* ── Monthly spending chart ───────────────────────────────────────── */}
         <section className="mb-8">
-          <h2 className="text-sm font-semibold text-gray-600 mb-3">
+          <h2 className="text-sm font-semibold text-slate-600 mb-3">
             Monthly Spending — {year}
             {category && ` · ${CATEGORY_META[category]?.label ?? category}`}
           </h2>
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
             <SpendingChart data={monthlyData} year={year} loading={loading} />
-            <p className="text-xs text-gray-400 mt-2 text-center">
+            <p className="text-xs text-slate-400 mt-2 text-center">
               Click a bar to view transactions for that month
             </p>
           </div>
@@ -189,13 +190,13 @@ export default function InsightsPage() {
 
         {/* ── Yearly summary chart ─────────────────────────────────────────── */}
         <section className="mb-8">
-          <h2 className="text-sm font-semibold text-gray-600 mb-3">
+          <h2 className="text-sm font-semibold text-slate-600 mb-3">
             Yearly Summary
             {category && ` · ${CATEGORY_META[category]?.label ?? category}`}
           </h2>
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
             <ReimbursementChart data={yearlyData} loading={loading} />
-            <p className="text-xs text-gray-400 mt-2 text-center">
+            <p className="text-xs text-slate-400 mt-2 text-center">
               Click a bar to view all transactions for that year
             </p>
           </div>
@@ -204,7 +205,7 @@ export default function InsightsPage() {
         {/* ── Category breakdown ───────────────────────────────────────────── */}
         {summaryData && summaryData.categories.length > 0 && (
           <section>
-            <h2 className="text-sm font-semibold text-gray-600 mb-3">
+            <h2 className="text-sm font-semibold text-slate-600 mb-3">
               Spending by Category (all time)
             </h2>
             <div className="flex flex-wrap gap-2">
@@ -227,6 +228,7 @@ export default function InsightsPage() {
           </section>
         )}
 
+      </div>
       </div>
     </ProtectedRoute>
   );

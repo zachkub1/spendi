@@ -1,4 +1,4 @@
-# Authentication & Security Model: Ledgerly
+# Authentication & Security Model: Spendi
 **Version**: 1.0
 **Last Updated**: 2026-02-11
 **Status**: Draft
@@ -8,7 +8,7 @@
 
 ## Overview
 
-Ledgerly's security model is built on three core principles:
+Spendi's security model is built on three core principles:
 
 1. **Zero Trust**: Never trust user input; always validate and sanitize
 2. **Least Privilege**: Grant minimal permissions required for functionality
@@ -37,7 +37,7 @@ This document defines authentication flows, token management, encryption strateg
 
 ### Two-Step OAuth Consent
 
-Ledgerly uses a **two-step consent flow** to separate user authentication from Gmail API access:
+Spendi uses a **two-step consent flow** to separate user authentication from Gmail API access:
 
 1. **Step 1: User Authentication** - Login with Google (minimal scopes)
 2. **Step 2: Gmail Access** - Explicit consent to read transaction emails (after user understands purpose)
@@ -59,7 +59,7 @@ This approach:
         │ 1. Click "Sign Up with Google"
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Frontend (Next.js)                                          │
+│ Spendi Frontend (Next.js)                                          │
 │ - Redirects to /api/auth/google/authorize                           │
 └───────┬──────────────────────────────────────────────────────────────┘
         │
@@ -68,14 +68,14 @@ This approach:
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Google OAuth Server                                                  │
 │ - Requested Scopes: openid, email, profile                          │
-│ - User sees: "Ledgerly wants to access your Google account"         │
+│ - User sees: "Spendi wants to access your Google account"         │
 └───────┬──────────────────────────────────────────────────────────────┘
         │
         │ 3. User grants consent
         │ 4. Redirect to /api/auth/google/callback?code=AUTH_CODE
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Backend (FastAPI)                                           │
+│ Spendi Backend (FastAPI)                                           │
 │ - Exchange AUTH_CODE for access_token + id_token                     │
 │ - Verify id_token signature (RS256)                                  │
 │ - Extract user info: email, sub (subject ID), name                   │
@@ -87,7 +87,7 @@ This approach:
         │ 6. Redirect to /dashboard
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Frontend (Dashboard)                                        │
+│ Spendi Frontend (Dashboard)                                        │
 │ - Shows onboarding: "Connect your email to sync transactions"       │
 │ - Button: "Connect Gmail"                                            │
 └───────┬──────────────────────────────────────────────────────────────┘
@@ -95,7 +95,7 @@ This approach:
         │ 7. User clicks "Connect Gmail"
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Frontend                                                    │
+│ Spendi Frontend                                                    │
 │ - Redirects to /api/auth/google/authorize-gmail                     │
 └───────┬──────────────────────────────────────────────────────────────┘
         │
@@ -104,7 +104,7 @@ This approach:
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Google OAuth Server                                                  │
 │ - Requested Scopes: https://www.googleapis.com/auth/gmail.readonly  │
-│ - User sees: "Ledgerly wants to read your emails"                   │
+│ - User sees: "Spendi wants to read your emails"                   │
 │ - Shows detailed permissions explanation                             │
 └───────┬──────────────────────────────────────────────────────────────┘
         │
@@ -112,7 +112,7 @@ This approach:
         │ 10. Redirect to /api/auth/google/gmail-callback?code=AUTH_CODE
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Backend (FastAPI)                                           │
+│ Spendi Backend (FastAPI)                                           │
 │ - Exchange AUTH_CODE for access_token + refresh_token                │
 │ - Encrypt refresh_token using envelope encryption                    │
 │ - Create EmailAccount record with encrypted tokens                   │
@@ -123,7 +123,7 @@ This approach:
         │ 11. Redirect to /dashboard (with success message)
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Frontend (Dashboard)                                        │
+│ Spendi Frontend (Dashboard)                                        │
 │ - Shows "Email connected! Syncing transactions..."                   │
 │ - Displays transaction list as data arrives                          │
 └──────────────────────────────────────────────────────────────────────┘
@@ -147,7 +147,7 @@ This approach:
         │ 1. Click "Login with Google"
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Frontend                                                    │
+│ Spendi Frontend                                                    │
 │ - Redirects to /api/auth/google/authorize                           │
 └───────┬──────────────────────────────────────────────────────────────┘
         │
@@ -163,7 +163,7 @@ This approach:
         │ 4. Lookup existing User by oauth_subject_id
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Backend                                                     │
+│ Spendi Backend                                                     │
 │ - Generate new session token                                         │
 │ - Update last_login timestamp                                        │
 │ - Log audit event: "User logged in"                                  │
@@ -172,13 +172,13 @@ This approach:
         │ 5. Set httpOnly cookie, redirect to /dashboard
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Dashboard                                                   │
+│ Spendi Dashboard                                                   │
 │ - User sees their transaction history                                │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 **Key Points:**
-- **No password**: Ledgerly never handles passwords (delegated to Google)
+- **No password**: Spendi never handles passwords (delegated to Google)
 - **Fast login**: Google auto-approves if user already consented
 - **Session expiry**: Sessions expire after 7 days of inactivity (configurable)
 
@@ -188,13 +188,13 @@ This approach:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ User (in Ledgerly Settings)                                          │
+│ User (in Spendi Settings)                                          │
 └───────┬──────────────────────────────────────────────────────────────┘
         │
         │ 1. Click "Disconnect Gmail"
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Frontend                                                    │
+│ Spendi Frontend                                                    │
 │ - Confirm: "Are you sure? Transaction sync will stop."              │
 └───────┬──────────────────────────────────────────────────────────────┘
         │
@@ -202,7 +202,7 @@ This approach:
         │ 3. POST /api/email-accounts/{id}/revoke
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Backend                                                     │
+│ Spendi Backend                                                     │
 │ - Verify user owns this EmailAccount                                 │
 │ - Decrypt refresh_token                                              │
 │ - Revoke token at Google (POST to revocation endpoint)              │
@@ -214,7 +214,7 @@ This approach:
         │ 4. Return success
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Frontend                                                    │
+│ Spendi Frontend                                                    │
 │ - Show "Gmail disconnected. Your transaction history remains."      │
 │ - Offer "Reconnect Gmail" button                                     │
 └──────────────────────────────────────────────────────────────────────┘
@@ -231,13 +231,13 @@ This approach:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ User (in Ledgerly Settings)                                          │
+│ User (in Spendi Settings)                                          │
 └───────┬──────────────────────────────────────────────────────────────┘
         │
         │ 1. Click "Delete My Account"
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Frontend                                                    │
+│ Spendi Frontend                                                    │
 │ - Show warning: "This will delete ALL data. Export first?"          │
 │ - Require re-authentication (confirm with Google)                    │
 └───────┬──────────────────────────────────────────────────────────────┘
@@ -246,7 +246,7 @@ This approach:
         │ 3. POST /api/users/me/delete
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Backend                                                     │
+│ Spendi Backend                                                     │
 │ - Verify user identity (check session token)                         │
 │ - Revoke all OAuth tokens (Gmail + authentication)                   │
 │ - Soft-delete User record (set deleted_at timestamp)                 │
@@ -260,7 +260,7 @@ This approach:
         │ 4. Destroy session, redirect to homepage
         ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Ledgerly Homepage                                                    │
+│ Spendi Homepage                                                    │
 │ - Show "Account deleted. Data will be purged in 30 days."           │
 └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -280,13 +280,13 @@ This approach:
 | Token Type          | Purpose                        | Lifetime           | Storage Location           | Encryption      |
 |---------------------|--------------------------------|--------------------|----------------------------|-----------------|
 | **Google ID Token** | User authentication (JWT)      | 1 hour             | Not stored (verified once) | N/A             |
-| **Session Token**   | Ledgerly session (JWT)         | 7 days (idle)      | httpOnly cookie            | Signed (HS256)  |
+| **Session Token**   | Spendi session (JWT)         | 7 days (idle)      | httpOnly cookie            | Signed (HS256)  |
 | **Access Token**    | Gmail API access (short-lived) | 1 hour             | DB (EmailAccount table)    | AES-256 (envelope) |
 | **Refresh Token**   | Gmail API refresh (long-lived) | No expiration      | DB (EmailAccount table)    | AES-256 (envelope) |
 
 ---
 
-### Session Token (Ledgerly JWT)
+### Session Token (Spendi JWT)
 
 **Purpose**: Maintain user session without storing passwords
 
@@ -382,7 +382,7 @@ if access_token_expired():
 
 ### Envelope Encryption for OAuth Tokens
 
-Ledgerly uses **envelope encryption** to protect OAuth refresh tokens at rest. This is a two-layer encryption approach:
+Spendi uses **envelope encryption** to protect OAuth refresh tokens at rest. This is a two-layer encryption approach:
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -537,7 +537,7 @@ This ensures KEK can only be used for its intended purpose.
 
 ### Least-Privilege Scopes
 
-Ledgerly requests the **minimum Gmail API scopes** necessary:
+Spendi requests the **minimum Gmail API scopes** necessary:
 
 | Scope                                           | Purpose                                  | Risk Level |
 |-------------------------------------------------|------------------------------------------|------------|
@@ -556,7 +556,7 @@ Ledgerly requests the **minimum Gmail API scopes** necessary:
 
 ### Gmail.Readonly: What It Includes
 
-The `gmail.readonly` scope allows Ledgerly to:
+The `gmail.readonly` scope allows Spendi to:
 
 ✅ **Allowed:**
 - List messages (subject, sender, date, message ID)
@@ -575,7 +575,7 @@ The `gmail.readonly` scope allows Ledgerly to:
 
 ### Filtering to Transaction Emails Only
 
-To minimize privacy concerns, Ledgerly **only reads transaction-related emails**:
+To minimize privacy concerns, Spendi **only reads transaction-related emails**:
 
 **Allowlist Approach:**
 ```python
@@ -602,7 +602,7 @@ messages = gmail_service.users().messages().list(
 ```
 
 **Privacy Guarantee:**
-- Ledgerly **NEVER** queries personal emails (from friends, family, coworkers)
+- Spendi **NEVER** queries personal emails (from friends, family, coworkers)
 - Only emails from known financial institutions are fetched
 - Email **content** is never stored (only extracted transaction fields)
 
@@ -616,7 +616,7 @@ messages = gmail_service.users().messages().list(
 ┌────────────────────────────────────────────────────────────────┐
 │ Connect Your Email                                             │
 ├────────────────────────────────────────────────────────────────┤
-│ Ledgerly needs read-only access to your Gmail to              │
+│ Spendi needs read-only access to your Gmail to              │
 │ automatically sync transaction notifications.                  │
 │                                                                 │
 │ ✅ What we do:                                                 │
@@ -696,7 +696,7 @@ response.set_cookie(
     secure=True,         # HTTPS only
     samesite="Lax",      # CSRF protection
     max_age=604800,      # 7 days (seconds)
-    domain="ledgerly.app",
+    domain="spendi.app",
     path="/"
 )
 ```
@@ -829,7 +829,7 @@ Every security-sensitive action is logged in an immutable audit log.
 
 **Mitigations**:
 - ✅ **Google's OAuth UI**: Shows app name, scopes, and developer info (user can verify legitimacy)
-- ✅ **Domain verification**: Ledgerly domain verified with Google (shows checkmark)
+- ✅ **Domain verification**: Spendi domain verified with Google (shows checkmark)
 - ✅ **User education**: In-app explanations of what access means
 - ✅ **Revocation instructions**: Clear steps to revoke access if suspicious
 
@@ -841,7 +841,7 @@ Every security-sensitive action is logged in an immutable audit log.
 
 ### Threat 4: Insider Threat (Malicious Employee)
 
-**Scenario**: Ledgerly employee with DB access attempts to steal user data.
+**Scenario**: Spendi employee with DB access attempts to steal user data.
 
 **Assets at Risk**:
 - Encrypted OAuth tokens
@@ -882,7 +882,7 @@ Every security-sensitive action is logged in an immutable audit log.
 
 ### Threat 6: API Abuse (Gmail API Quota Exhaustion)
 
-**Scenario**: Attacker spams requests to exhaust Ledgerly's Gmail API quota, causing service disruption.
+**Scenario**: Attacker spams requests to exhaust Spendi's Gmail API quota, causing service disruption.
 
 **Assets at Risk**:
 - Service availability (cannot sync emails for legitimate users)
@@ -901,11 +901,11 @@ Every security-sensitive action is logged in an immutable audit log.
 
 ## What is NEVER Stored
 
-Ledgerly adheres to strict data minimization principles:
+Spendi adheres to strict data minimization principles:
 
 ### ❌ Never Stored:
 
-1. **Passwords**: Ledgerly uses OAuth exclusively; no password storage
+1. **Passwords**: Spendi uses OAuth exclusively; no password storage
 2. **Full email content**: Only extracted transaction fields (merchant, amount, date) stored; email body discarded
 3. **Email attachments**: Never downloaded or stored
 4. **Full credit card numbers**: Only last 4 digits stored
@@ -1424,7 +1424,7 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 FRONTEND_URL=http://localhost:3000
 
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/ledgerly
+DATABASE_URL=postgresql://user:password@localhost:5432/spendi
 
 # Redis (for session revocation)
 REDIS_URL=redis://localhost:6379/0
@@ -1507,4 +1507,4 @@ REDIS_URL=redis://localhost:6379/0
 
 ---
 
-**Questions? Contact**: security@ledgerly.app
+**Questions? Contact**: security@spendi.app

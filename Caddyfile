@@ -1,0 +1,22 @@
+# Caddy reverse proxy — handles SSL automatically via Let's Encrypt (free)
+# Install on EC2: dnf install caddy  OR  apt install caddy
+# Run: caddy start --config /opt/spendi/Caddyfile
+#
+# Replace spendi.app with your actual domain.
+# Caddy auto-obtains and renews TLS certificates — no ACM needed.
+
+spendi.app {
+    # Next.js frontend
+    reverse_proxy localhost:3000
+}
+
+api.spendi.app {
+    # FastAPI backend
+    reverse_proxy localhost:8000
+
+    # Strip server info header
+    header -Server
+
+    # Enforce HTTPS (Caddy does this automatically, but be explicit)
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
