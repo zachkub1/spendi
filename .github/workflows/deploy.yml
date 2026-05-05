@@ -36,17 +36,30 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt pip-audit ruff bandit
+        run: pip install -r requirements.txt pip-audit ruff bandit bandit-sarif-formatter
 
       - name: Ruff lint
         run: ruff check . --output-format github
 
       - name: Bandit security scan
-        run: bandit -r app/ -ll -f sarif -o bandit.sarif || true
+        run: |
+          # bandit-sarif-formatter registers the 'sarif' output format.
+          # Exit 0 = no findings. Exit 1 = findings (report still written).
+          # Exit 2+ = bandit crashed — hard-fail so the bug is not silenced.
+          bandit -r app/ -ll -f sarif -o bandit.sarif || {
+            code=$?
+            [ $code -ge 2 ] && echo "::error::Bandit crashed (exit $code)" && exit $code
+            true  # exit 1 = findings; file is written; continue
+          }
+
+      - name: Verify SARIF exists
+        run: |
+          echo "pwd: $(pwd)"
+          ls -lh bandit.sarif
 
       - name: Upload Bandit SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: backend/bandit.sarif
           category: bandit
