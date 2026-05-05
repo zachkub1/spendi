@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
+from redis import from_url as redis_from_url
+from redis import RedisError
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from sqlalchemy.orm import Session
@@ -17,11 +19,21 @@ from app.db.models import User, AuditLog, AuditLogAction
 
 logger = logging.getLogger(__name__)
 
-# In-process OAuth state store. In production with multiple workers, swap this
-# for a Redis SET with TTL (see app/auth/state_store.py for the Redis version).
-# The store maps state -> expiry timestamp; states expire after 10 minutes.
-_OAUTH_STATES: dict[str, datetime] = {}
 _STATE_TTL_SECONDS = 600  # 10 minutes
+_STATE_KEY_PREFIX = "oauth_state:"
+
+# Redis-backed state store works across multiple uvicorn workers.
+# Falls back to in-process dict when Redis is unavailable (dev/test).
+try:
+    _redis = redis_from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=2)
+    _redis.ping()
+    _USE_REDIS = True
+    logger.info("[AUTH] OAuth state store: Redis")
+except Exception:
+    _USE_REDIS = False
+    _redis = None
+    _OAUTH_STATES: dict[str, datetime] = {}
+    logger.warning("[AUTH] OAuth state store: in-process (Redis unavailable)")
 
 
 class AuthService:
@@ -34,23 +46,32 @@ class AuthService:
     @staticmethod
     def store_oauth_state(state: str) -> None:
         """Persist a freshly generated OAuth state token so the callback can verify it."""
+        if _USE_REDIS and _redis is not None:
+            try:
+                _redis.setex(f"{_STATE_KEY_PREFIX}{state}", _STATE_TTL_SECONDS, "1")
+                return
+            except RedisError:
+                logger.warning("[AUTH] Redis unavailable, falling back to in-process store")
         _prune_expired_states()
         _OAUTH_STATES[state] = datetime.now(timezone.utc) + timedelta(seconds=_STATE_TTL_SECONDS)
-        logger.debug("[AUTH] Stored OAuth state (total=%d)", len(_OAUTH_STATES))
 
     @staticmethod
     def validate_oauth_state(state: str) -> bool:
         """
-        Validate and consume an OAuth state token.
-        Returns True if valid; always removes the token (one-time use).
+        Validate and consume an OAuth state token (one-time use).
+        Returns True if valid.
         """
+        if _USE_REDIS and _redis is not None:
+            try:
+                deleted = _redis.delete(f"{_STATE_KEY_PREFIX}{state}")
+                return deleted == 1
+            except RedisError:
+                logger.warning("[AUTH] Redis unavailable, falling back to in-process store")
         _prune_expired_states()
         expiry = _OAUTH_STATES.pop(state, None)
         if expiry is None:
             return False
-        if datetime.now(timezone.utc) > expiry:
-            return False
-        return True
+        return datetime.now(timezone.utc) <= expiry
 
     # ------------------------------------------------------------------
     # JWT

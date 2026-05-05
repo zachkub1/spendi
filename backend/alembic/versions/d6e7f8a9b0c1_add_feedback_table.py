@@ -27,16 +27,16 @@ _FEEDBACK_TYPE_ENUM = sa.Enum(
 
 
 def upgrade() -> None:
-    _FEEDBACK_TYPE_ENUM.create(op.get_bind(), checkfirst=True)
-
+    # Let op.create_table own the enum type lifecycle.
+    # Explicit pre-creation + create_type=False triggers a duplicate-type error
+    # in SQLAlchemy 2.0 because _on_table_create fires regardless of create_type.
     op.create_table(
         "feedback",
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column(
             "type",
-            # create_type=False: we already created the type explicitly above
-            sa.Enum("bug", "suggestion", "classification_issue", name="feedbacktype", create_type=False),
+            sa.Enum("bug", "suggestion", "classification_issue", name="feedbacktype"),
             nullable=False,
         ),
         sa.Column("message", sa.Text(), nullable=False),
