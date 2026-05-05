@@ -3,7 +3,6 @@ Application configuration module.
 Loads settings from environment variables with validation.
 """
 import os
-from typing import Optional
 from dotenv import load_dotenv
 
 load_dotenv()

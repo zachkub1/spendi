@@ -91,7 +91,7 @@ class EmailSyncService:
             logger.info(f"[SYNC] Decrypting credentials for account {email_account.id}")
             try:
                 credentials = EmailAccountService.get_decrypted_credentials(email_account)
-                logger.info(f"[SYNC] ✅ Credentials decrypted successfully")
+                logger.info("[SYNC] ✅ Credentials decrypted successfully")
                 logger.info(f"[SYNC] Token expiry: {credentials.expiry}")
                 logger.info(f"[SYNC] Token valid: {credentials.valid}")
                 logger.info(f"[SYNC] Token expired: {credentials.expired}")
@@ -369,7 +369,7 @@ class EmailSyncService:
             except Exception as audit_error:
                 # Audit logging failure should NOT crash the sync job
                 logger.error(f"[AUDIT] ⚠️  Failed to create audit log (non-fatal): {audit_error}")
-                logger.error(f"[AUDIT] Sync still succeeded - this is a logging issue only")
+                logger.error("[AUDIT] Sync still succeeded - this is a logging issue only")
 
             return {
                 "discovered": discovered_count,

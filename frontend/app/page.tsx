@@ -187,7 +187,7 @@ export default function LandingPage() {
             <div className="space-y-4 text-white/75 leading-relaxed text-base">
               <p>
                 I kept multiple credit cards from different banks, and used Venmo
-                and Zelle regularly. Every month I'd open my different bank apps, to 
+                and Zelle regularly. Every month I&apos;d open my different bank apps, to
                 see which card I used where and see values larger than my spent due 
                 to paying the bill then getting reimbursed by friends. 
               </p>
@@ -219,7 +219,7 @@ export default function LandingPage() {
             What it does
           </p>
           <h2 className="text-center text-3xl font-bold text-white mb-10">
-            Everything you need, nothing you don't
+            Everything you need, nothing you don&apos;t
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

@@ -46,7 +46,7 @@ try:
             logger.info(f"    -> Normalized: {result.merchant_normalized} ({result.category})")
         else:
             skipped += 1
-            logger.warning(f"    -> No match found, skipped")
+            logger.warning("    -> No match found, skipped")
 
     db.commit()
     logger.info(f"\nDone: {success} normalized, {skipped} skipped (no matching instrument)")

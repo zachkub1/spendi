@@ -3,7 +3,6 @@ Email account service layer.
 Business logic for managing email accounts and OAuth tokens.
 """
 from datetime import datetime
-from typing import Optional
 from sqlalchemy.orm import Session
 from google.oauth2.credentials import Credentials
 

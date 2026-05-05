@@ -2,7 +2,6 @@
 Unit tests for merchant name normalization.
 Tests cover known patterns, edge cases, and cleanup logic.
 """
-import pytest
 from app.transactions.merchant_normalization import normalize_merchant_name
 
 

@@ -156,7 +156,7 @@ class TestPaymentInstrumentMatching:
     def test_match_only_active_instruments(self, mock_db, user_id, parsed_transaction_card):
         """Test that only active instruments are matched."""
         # Create inactive instrument
-        inactive_instrument = PaymentInstrument(
+        _inactive_instrument = PaymentInstrument(
             id=uuid4(),
             user_id=user_id,
             type=PaymentInstrumentType.CREDIT_CARD,

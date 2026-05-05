@@ -3,7 +3,6 @@ Category accuracy testing with labeled dataset.
 Measures categorization accuracy against 100+ labeled transactions.
 Target: ≥80% accuracy
 """
-import pytest
 from typing import List, Tuple
 from app.transactions.categorization import infer_category
 from app.db.models import TransactionCategory
@@ -203,7 +202,7 @@ class TestCategoryAccuracy:
 
         # Print results
         print(f"\n{'='*60}")
-        print(f"CATEGORY ACCURACY TEST RESULTS")
+        print("CATEGORY ACCURACY TEST RESULTS")
         print(f"{'='*60}")
         print(f"Total transactions: {total}")
         print(f"Correct predictions: {correct}")

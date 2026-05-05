@@ -3,7 +3,6 @@ Gmail API client wrapper.
 Provides simplified interface for Gmail API operations.
 """
 from typing import Optional
-from datetime import datetime
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import base64

@@ -2,7 +2,6 @@
 Unit tests for transaction categorization.
 Tests cover category inference from merchant names and transaction types.
 """
-import pytest
 from app.transactions.categorization import infer_category
 from app.db.models import TransactionCategory
 

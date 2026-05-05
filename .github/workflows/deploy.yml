@@ -42,20 +42,37 @@ jobs:
         run: ruff check . --output-format github
 
       - name: Bandit security scan
+        working-directory: .
         run: |
-          # bandit-sarif-formatter registers the 'sarif' output format.
-          # Exit 0 = no findings. Exit 1 = findings (report still written).
-          # Exit 2+ = bandit crashed — hard-fail so the bug is not silenced.
-          bandit -r app/ -ll -f sarif -o bandit.sarif || {
-            code=$?
-            [ $code -ge 2 ] && echo "::error::Bandit crashed (exit $code)" && exit $code
-            true  # exit 1 = findings; file is written; continue
-          }
+          mkdir -p backend
+          set +e
+          bandit -r backend/app/ -ll -f sarif -o backend/bandit.sarif
+          BANDIT_EXIT=$?
+          set -e
+          echo "Bandit exit code: $BANDIT_EXIT"
+          if [ $BANDIT_EXIT -ge 2 ]; then
+            echo "::error::Bandit crashed (exit $BANDIT_EXIT)"
+            exit $BANDIT_EXIT
+          fi
 
-      - name: Verify SARIF exists
+      - name: Debug SARIF location
+        if: always()
+        working-directory: .
         run: |
           echo "pwd: $(pwd)"
-          ls -lh bandit.sarif
+          ls -la
+          ls -la backend/
+
+      - name: Verify SARIF exists
+        if: always()
+        working-directory: .
+        run: |
+          if [ -f backend/bandit.sarif ]; then
+            echo "bandit.sarif found ($(wc -c < backend/bandit.sarif) bytes)"
+          else
+            echo "::error::backend/bandit.sarif not found"
+            exit 1
+          fi
 
       - name: Upload Bandit SARIF
         if: always()
