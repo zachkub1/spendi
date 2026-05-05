@@ -5,12 +5,12 @@
 # Replace spendi.app with your actual domain.
 # Caddy auto-obtains and renews TLS certificates — no ACM needed.
 
-spendi.app {
+spendi.live, www.spendi.live {
     # Next.js frontend
     reverse_proxy localhost:3000
 }
 
-api.spendi.app {
+api.spendi.live {
     # FastAPI backend
     reverse_proxy localhost:8000
 

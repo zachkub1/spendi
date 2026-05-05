@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: us-east-2
   ECR_BACKEND_REPO: spendi-backend
   ECR_FRONTEND_REPO: spendi-frontend
 
@@ -86,7 +86,7 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: https://api.spendi.app
+          NEXT_PUBLIC_API_URL: https://api.spendi.live
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 3. Build images + deploy to EC2 (main branch only)
@@ -115,25 +115,26 @@ jobs:
         id: tag
         run: echo "TAG=${{ github.sha }}" >> $GITHUB_OUTPUT
 
-      # Build + push backend
+      # Build + push backend (linux/amd64 for EC2 x86_64)
       - name: Build & push backend
         run: |
           IMAGE=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_BACKEND_REPO }}
-          docker build -t $IMAGE:${{ steps.tag.outputs.TAG }} -t $IMAGE:latest ./backend
-          docker push $IMAGE:${{ steps.tag.outputs.TAG }}
-          docker push $IMAGE:latest
+          docker buildx build \
+            --platform linux/amd64 \
+            -t $IMAGE:${{ steps.tag.outputs.TAG }} -t $IMAGE:latest \
+            --push ./backend
           echo "BACKEND_IMAGE=$IMAGE:${{ steps.tag.outputs.TAG }}" >> $GITHUB_ENV
 
-      # Build + push frontend
+      # Build + push frontend (context = repo root; Dockerfile references frontend/ and shared/)
       - name: Build & push frontend
         run: |
           IMAGE=${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_FRONTEND_REPO }}
-          docker build \
-            --build-arg NEXT_PUBLIC_API_URL=https://api.spendi.app \
+          docker buildx build \
+            --platform linux/amd64 \
+            --build-arg NEXT_PUBLIC_API_URL=https://api.spendi.live \
+            -f frontend/Dockerfile \
             -t $IMAGE:${{ steps.tag.outputs.TAG }} -t $IMAGE:latest \
-            ./frontend
-          docker push $IMAGE:${{ steps.tag.outputs.TAG }}
-          docker push $IMAGE:latest
+            --push .
           echo "FRONTEND_IMAGE=$IMAGE:${{ steps.tag.outputs.TAG }}" >> $GITHUB_ENV
 
       # Deploy to EC2 via SSH
@@ -176,5 +177,5 @@ jobs:
       - name: Smoke test
         run: |
           sleep 10
-          curl -sf --retry 5 --retry-delay 5 https://api.spendi.app/health
+          curl -sf --retry 5 --retry-delay 5 https://api.spendi.live/health
           echo "✅ Health check passed"

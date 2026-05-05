@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Required for the Docker multi-stage build (copies only the minimal server)
   output: "standalone",
+  transpilePackages: ['@splinetool/react-spline', '@splinetool/runtime'],
 
   // Harden HTTP headers served by Next.js itself
   async headers() {

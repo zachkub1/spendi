@@ -3,18 +3,19 @@ FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --omit=dev --legacy-peer-deps
 
 # ── Stage 2: builder ──────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --legacy-peer-deps
 
-COPY . .
+COPY frontend/ .
+COPY shared/ ../shared/
 # Inline env baked at build time (public vars only)
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
