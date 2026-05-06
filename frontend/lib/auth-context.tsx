@@ -17,6 +17,7 @@ interface AuthContextType {
   loading: boolean;
   login: (token: string) => Promise<void>;
   logout: () => void;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -93,12 +94,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     router.push('/login');
   };
 
+  /**
+   * Permanently delete account: calls DELETE /auth/me, then clears local state.
+   */
+  const deleteAccount = async () => {
+    await apiClient.delete('/auth/me');
+    clearToken();
+    setUser(null);
+    setToken(null);
+    router.push('/login');
+  };
+
   const value: AuthContextType = {
     user,
     token,
     loading,
     login,
     logout,
+    deleteAccount,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

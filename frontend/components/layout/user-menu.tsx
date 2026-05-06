@@ -1,10 +1,6 @@
 'use client';
 
-/**
- * UserMenu component - displays user avatar and dropdown menu.
- * Shows user profile information and logout option.
- */
-
+import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -15,9 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { DeleteAccountModal } from '@/components/auth/delete-account-modal';
 
 export function UserMenu() {
   const { user, logout } = useAuth();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   if (!user) return null;
 
@@ -58,7 +56,18 @@ export function UserMenu() {
         <DropdownMenuItem onClick={logout}>
           Logout
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => setShowDeleteModal(true)}
+          className="text-red-600 focus:text-red-600 focus:bg-red-50"
+        >
+          Delete account
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+
+    {showDeleteModal && (
+      <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />
+    )}
   );
 }

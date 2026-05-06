@@ -2,6 +2,7 @@
 Authentication routes for Google OAuth and JWT-based sessions.
 """
 import logging
+import requests as http_requests
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
@@ -14,7 +15,13 @@ from app.config import settings
 from app.auth.service import AuthService
 from app.auth.dependencies import get_current_user
 from app.db.session import get_db
-from app.db.models import User, AuditLogAction
+from app.db.models import (
+    User, AuditLogAction,
+    EmailAccount, RawEmail, ParsedTransaction,
+    NormalizedTransaction, PaymentInstrument,
+    ReimbursementLink, AuditLog, Feedback,
+)
+from app.email_ingest.service import EmailAccountService
 
 logger = logging.getLogger(__name__)
 
@@ -170,3 +177,71 @@ async def logout(
         action=AuditLogAction.USER_LOGOUT,
     )
     return {"message": "Logged out successfully"}
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Permanently delete the authenticated user's account and all associated data.
+
+    Deletion order respects FK constraints:
+      reimbursement_links → normalized_transactions → parsed_transactions
+      → raw_emails → email_accounts → payment_instruments
+      → feedback → audit_logs → user
+
+    Google OAuth tokens are revoked best-effort before data is removed.
+    """
+    user_id = current_user.id
+    logger.info("[DELETE_ACCOUNT] Starting deletion for user %s (%s)", user_id, current_user.email)
+
+    # ── 1. Revoke Google OAuth tokens (best-effort, never blocks deletion) ──────
+    email_accounts = db.query(EmailAccount).filter(EmailAccount.user_id == user_id).all()
+    for account in email_accounts:
+        try:
+            creds = EmailAccountService.get_decrypted_credentials(account)
+            if creds.token:
+                http_requests.post(
+                    "https://oauth2.googleapis.com/revoke",
+                    params={"token": creds.token},
+                    timeout=5,
+                )
+                logger.info("[DELETE_ACCOUNT] Revoked Gmail token for account %s", account.id)
+        except Exception as exc:
+            logger.warning("[DELETE_ACCOUNT] Token revocation failed for account %s (non-fatal): %s", account.id, exc)
+
+    # ── 2. Delete in FK dependency order ─────────────────────────────────────────
+
+    # reimbursement_links: FK → normalized_transactions (must go first)
+    nt_ids = db.query(NormalizedTransaction.id).filter(NormalizedTransaction.user_id == user_id)
+    db.query(ReimbursementLink).filter(
+        ReimbursementLink.p2p_transaction_id.in_(nt_ids)
+    ).delete(synchronize_session=False)
+    db.query(ReimbursementLink).filter(
+        ReimbursementLink.target_transaction_id.in_(nt_ids)
+    ).delete(synchronize_session=False)
+
+    # normalized_transactions
+    db.query(NormalizedTransaction).filter(NormalizedTransaction.user_id == user_id).delete(synchronize_session=False)
+
+    # parsed_transactions: scoped via email accounts
+    ea_ids = db.query(EmailAccount.id).filter(EmailAccount.user_id == user_id)
+    db.query(ParsedTransaction).filter(ParsedTransaction.email_account_id.in_(ea_ids)).delete(synchronize_session=False)
+
+    # raw_emails
+    db.query(RawEmail).filter(RawEmail.email_account_id.in_(ea_ids)).delete(synchronize_session=False)
+
+    # email_accounts, payment_instruments, feedback, audit_logs
+    db.query(EmailAccount).filter(EmailAccount.user_id == user_id).delete(synchronize_session=False)
+    db.query(PaymentInstrument).filter(PaymentInstrument.user_id == user_id).delete(synchronize_session=False)
+    db.query(Feedback).filter(Feedback.user_id == user_id).delete(synchronize_session=False)
+    db.query(AuditLog).filter(AuditLog.user_id == user_id).delete(synchronize_session=False)
+
+    # user row last
+    db.query(User).filter(User.id == user_id).delete(synchronize_session=False)
+
+    db.commit()
+    logger.info("[DELETE_ACCOUNT] Completed deletion for user %s", user_id)
+    return None
