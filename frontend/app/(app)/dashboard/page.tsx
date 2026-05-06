@@ -96,11 +96,11 @@ export default function DashboardPage() {
     try {
       const [monthlyData, summaryData, txnData] = await Promise.all([
         apiClient.get<MonthlyInsightItem[]>(
-          `/transactions/insights/monthly?year=${currentYear}&include_demo=true`
+          `/transactions/insights/monthly?year=${currentYear}`
         ),
-        apiClient.get<SummaryData>('/transactions/summary?include_demo=true'),
+        apiClient.get<SummaryData>('/transactions/summary'),
         apiClient.get<NormalizedTransaction[]>(
-          '/transactions/?limit=5&offset=0&include_demo=true'
+          '/transactions/?limit=5&offset=0'
         ),
       ]);
       setMonthly(monthlyData);
