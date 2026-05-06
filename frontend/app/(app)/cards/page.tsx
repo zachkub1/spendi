@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -38,12 +39,15 @@ function CardArt({ name }: { name: string }) {
   const [hasImage, setHasImage] = useState(true);
 
   return hasImage ? (
-    <img
-      src={cardImagePath(name)}
-      alt={name}
-      onError={() => setHasImage(false)}
-      className="w-full h-20 object-cover rounded-lg mb-3"
-    />
+    <div className="relative w-full h-20 rounded-lg mb-3 overflow-hidden">
+      <Image
+        src={cardImagePath(name)}
+        alt={name}
+        fill
+        className="object-cover"
+        onError={() => setHasImage(false)}
+      />
+    </div>
   ) : (
     <div className="w-full h-20 rounded-lg bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center mb-3">
       <span className="text-xs text-slate-400">Card Art</span>

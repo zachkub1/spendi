@@ -33,6 +33,7 @@ export function UserMenu() {
   };
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded-full">
@@ -69,5 +70,6 @@ export function UserMenu() {
     {showDeleteModal && (
       <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />
     )}
+    </>
   );
 }
