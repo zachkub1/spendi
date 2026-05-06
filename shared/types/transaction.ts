@@ -73,7 +73,8 @@ export interface NormalizedTransaction {
   reimbursed_amount: string;
   /** JSON-serialized Decimal */
   net_amount: string;
-  payment_instrument: PaymentInstrument;
+  /** null for transactions that couldn't be matched to a registered card */
+  payment_instrument: PaymentInstrument | null;
   created_at: string;
 }
 

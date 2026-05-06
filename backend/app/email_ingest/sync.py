@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime, parseaddr
 from typing import Optional
-from app.db.models import EmailAccount, RawEmail, ParsedTransaction, AuditLogAction
+from app.db.models import EmailAccount, RawEmail, ParsedTransaction, NormalizedTransaction, AuditLogAction
 from app.email_ingest.service import EmailAccountService
 from app.email_ingest.gmail_client import GmailClient
 from app.email_ingest.parsers.registry import ParserRegistry
@@ -300,19 +300,16 @@ class EmailSyncService:
                                 parsed_transaction=parsed_txn,
                                 user_id=str(email_account.user_id)
                             )
-                            if normalized_txn:
-                                normalized_count += 1
-                                logger.info(
-                                    f"[SYNC] ✅ Normalized: {normalized_txn.merchant_normalized} "
-                                    f"${normalized_txn.amount} category={normalized_txn.category} "
-                                    f"instrument={normalized_txn.payment_instrument_id}"
-                                )
-                            else:
-                                logger.warning(
-                                    f"[SYNC] ⚠️  No payment instrument match for: "
-                                    f"{parsed_txn.merchant_name} (type={parsed_txn.transaction_type} "
-                                    f"last4={parsed_txn.card_last_four} p2p={parsed_txn.p2p_source})"
-                                )
+                            normalized_count += 1
+                            linked = (
+                                normalized_txn.payment_instrument_id is not None
+                            )
+                            logger.info(
+                                f"[SYNC] ✅ Normalized ({'linked' if linked else 'unlinked'}): "
+                                f"{normalized_txn.merchant_normalized} ${normalized_txn.amount} "
+                                f"date={normalized_txn.transaction_date.date()} "
+                                f"category={normalized_txn.category}"
+                            )
                         except Exception as norm_error:
                             # Normalization failure should not crash the sync
                             logger.error(f"[SYNC] ❌ Normalization failed for {parsed_txn.merchant_name}: {norm_error}", exc_info=True)
@@ -341,6 +338,38 @@ class EmailSyncService:
                     raw_email.parsing_status = "failed"
                     raw_email.error_message = f"unexpected_exception: {str(e)}"
                     failed_count += 1
+
+            # Backfill: normalize any ParsedTransaction from previous syncs that
+            # still has no NormalizedTransaction (e.g. instrument was added after sync).
+            unmatched_pts = (
+                db.query(ParsedTransaction)
+                .outerjoin(
+                    NormalizedTransaction,
+                    NormalizedTransaction.parsed_transaction_id == ParsedTransaction.id,
+                )
+                .filter(
+                    ParsedTransaction.email_account_id == email_account.id,
+                    ParsedTransaction.parsing_status == "success",
+                    NormalizedTransaction.id.is_(None),
+                )
+                .all()
+            )
+            if unmatched_pts:
+                logger.info(f"[SYNC] Backfilling {len(unmatched_pts)} previously un-normalized transaction(s)")
+            backfill_count = 0
+            for pt in unmatched_pts:
+                try:
+                    PaymentInstrumentMatchingService.match_and_normalize(
+                        db=db,
+                        parsed_transaction=pt,
+                        user_id=str(email_account.user_id),
+                    )
+                    backfill_count += 1
+                except Exception as bf_err:
+                    logger.error(f"[SYNC] Backfill failed for ParsedTransaction {pt.id} ({pt.merchant_name}): {bf_err}")
+            if backfill_count:
+                normalized_count += backfill_count
+                logger.info(f"[SYNC] ✅ Backfilled {backfill_count} transaction(s)")
 
             # Update email account
             email_account.last_sync_at = datetime.now(timezone.utc)

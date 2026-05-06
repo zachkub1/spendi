@@ -163,7 +163,7 @@ export default function TransactionDetailPage() {
         {!loading && !error && !notFound && transaction && (() => {
           const catMeta = getCategoryMeta(transaction.category);
           const reimbLabel = getReimbursementLabel(transaction.reimbursement_status);
-          const pi = transaction.payment_instrument;
+          const pi = transaction.payment_instrument ?? null;
           const netDiffers = parseFloat(transaction.net_amount) !== parseFloat(transaction.amount);
 
           return (
@@ -206,13 +206,21 @@ export default function TransactionDetailPage() {
                   <div className="flex px-4 py-3 bg-white">
                     <dt className="w-40 shrink-0 text-sm text-gray-500">Payment Method</dt>
                     <dd className="text-sm font-medium text-gray-900">
-                      {getInstrumentIcon(pi.type)}{' '}
-                      {pi.display_name}
-                      {pi.last_four_digits && (
-                        <span className="text-gray-500"> ····{pi.last_four_digits}</span>
-                      )}
-                      {pi.account_identifier && (
-                        <span className="text-gray-500"> ({pi.account_identifier})</span>
+                      {pi ? (
+                        <>
+                          {getInstrumentIcon(pi.type)}{' '}
+                          {pi.display_name}
+                          {pi.last_four_digits && (
+                            <span className="text-gray-500"> ····{pi.last_four_digits}</span>
+                          )}
+                          {pi.account_identifier && (
+                            <span className="text-gray-500"> ({pi.account_identifier})</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="italic text-gray-400">
+                          Unlinked — go to Card Manager to register this card
+                        </span>
                       )}
                     </dd>
                   </div>
@@ -222,7 +230,7 @@ export default function TransactionDetailPage() {
                       {formatType(transaction.transaction_type)}
                     </dd>
                   </div>
-                  {pi.issuer && (
+                  {pi?.issuer && (
                     <div className="flex px-4 py-3 bg-white">
                       <dt className="w-40 shrink-0 text-sm text-gray-500">Issuer</dt>
                       <dd className="text-sm font-medium text-gray-900">{pi.issuer}</dd>

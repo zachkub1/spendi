@@ -20,7 +20,7 @@ interface Transaction {
     display_name: string;
     last_four_digits: string | null;
     type: string;
-  };
+  } | null;
   created_at: string;
 }
 
@@ -81,9 +81,14 @@ function TransactionCard({ transaction }: { transaction: Transaction }) {
               <span>{formatDate(transaction.transaction_date)}</span>
               <span>•</span>
               <span>
-                {transaction.payment_instrument.display_name}
-                {transaction.payment_instrument.last_four_digits &&
-                  ` ••••${transaction.payment_instrument.last_four_digits}`}
+                {transaction.payment_instrument
+                  ? <>
+                      {transaction.payment_instrument.display_name}
+                      {transaction.payment_instrument.last_four_digits &&
+                        ` ••••${transaction.payment_instrument.last_four_digits}`}
+                    </>
+                  : <span className="italic text-gray-400">Unlinked</span>
+                }
               </span>
               <span>•</span>
               <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs">

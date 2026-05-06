@@ -288,16 +288,18 @@ export default function TransactionsPage() {
             {summary?.total_transactions === 0 ? (
               <>
                 <p className="text-lg font-medium text-slate-700 mb-2">No transactions yet</p>
-                <p className="text-sm text-gray-500">
-                  Go to{' '}
-                  <a href="/email" className="text-blue-600 hover:underline">
-                    Email Integration
-                  </a>{' '}
-                  and click <strong>⚡ Load Demo Transactions</strong> to get started.
+                <p className="text-sm text-slate-500 mb-4">
+                  Connect Gmail and sync your emails — transactions will appear here automatically.
                 </p>
+                <a
+                  href="/email"
+                  className="inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  Go to Email Integration
+                </a>
               </>
             ) : (
-              <p className="text-gray-500">No transactions match the selected filters.</p>
+              <p className="text-slate-500">No transactions match the selected filters.</p>
             )}
           </div>
         )}

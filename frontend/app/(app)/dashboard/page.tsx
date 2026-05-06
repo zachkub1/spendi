@@ -87,6 +87,7 @@ export default function DashboardPage() {
   const [monthly, setMonthly] = useState<MonthlyInsightItem[]>([]);
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [recentTxns, setRecentTxns] = useState<NormalizedTransaction[]>([]);
+  const [hasEmailAccount, setHasEmailAccount] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,7 +95,7 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [monthlyData, summaryData, txnData] = await Promise.all([
+      const [monthlyData, summaryData, txnData, emailData] = await Promise.all([
         apiClient.get<MonthlyInsightItem[]>(
           `/transactions/insights/monthly?year=${currentYear}`
         ),
@@ -102,10 +103,12 @@ export default function DashboardPage() {
         apiClient.get<NormalizedTransaction[]>(
           '/transactions/?limit=5&offset=0'
         ),
+        apiClient.get<{ accounts: { id: string }[] }>('/email/accounts'),
       ]);
       setMonthly(monthlyData);
       setSummary(summaryData);
       setRecentTxns(txnData);
+      setHasEmailAccount(emailData.accounts.length > 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
     } finally {
@@ -175,25 +178,34 @@ export default function DashboardPage() {
           </div>
         ) : !hasData ? (
           /* ── Empty state ────────────────────────────────────────────────── */
-          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 py-16 text-center">
-            <p className="text-lg font-medium text-slate-700 mb-2">No transactions yet</p>
-            <p className="text-sm text-slate-500 mb-6">
-              Connect your Gmail or load demo data to get started.
-            </p>
-            <div className="flex justify-center gap-3">
-              <Link
-                href="/email"
-                className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-              >
-                Connect Gmail
-              </Link>
-              <Link
-                href="/email"
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Load Demo Data
-              </Link>
-            </div>
+          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 py-16 text-center px-6">
+            {hasEmailAccount === false ? (
+              <>
+                <p className="text-lg font-medium text-slate-700 mb-2">Connect your Gmail to get started</p>
+                <p className="text-sm text-slate-500 mb-6">
+                  Spendi reads your transaction confirmation emails and populates your dashboard automatically.
+                </p>
+                <Link
+                  href="/email"
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  Connect Gmail
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-medium text-slate-700 mb-2">No transactions yet</p>
+                <p className="text-sm text-slate-500 mb-6">
+                  Your Gmail is connected. Sync your emails and transactions will appear here automatically.
+                </p>
+                <Link
+                  href="/email"
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                >
+                  Go to Email Sync
+                </Link>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-8">

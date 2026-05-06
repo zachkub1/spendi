@@ -29,36 +29,42 @@ class PaymentInstrumentMatchingService:
         db: Session,
         parsed_transaction: ParsedTransaction,
         user_id: str
-    ) -> Optional[NormalizedTransaction]:
+    ) -> NormalizedTransaction:
         """
-        Match a parsed transaction to a payment instrument and create normalized transaction.
+        Match a parsed transaction to a payment instrument and create a normalized transaction.
+
+        Always creates a NormalizedTransaction. If no matching instrument is found,
+        payment_instrument_id is left NULL so the transaction still appears in the UI
+        (shown as "Unlinked"). Users can later associate it with a card.
 
         Args:
             db: Database session
-            parsed_transaction: The parsed transaction to match
+            parsed_transaction: The parsed transaction to normalize
             user_id: User ID for scoping payment instruments
 
         Returns:
-            NormalizedTransaction if successful, None if no matching instrument found
+            NormalizedTransaction (payment_instrument_id may be None if no match)
         """
-        # Find matching payment instrument
         payment_instrument = PaymentInstrumentMatchingService._find_matching_instrument(
             db=db,
             parsed_transaction=parsed_transaction,
             user_id=user_id
         )
 
-        if not payment_instrument:
-            logger.warning(
-                f"[MATCH] No payment instrument found for transaction: "
-                f"{parsed_transaction.merchant_name} ({parsed_transaction.card_last_four or 'P2P'})"
+        if payment_instrument:
+            logger.info(
+                f"[MATCH] Linked to {payment_instrument.display_name} "
+                f"(last4={payment_instrument.last_four_digits!r} "
+                f"acct={payment_instrument.account_identifier!r})"
             )
-            return None
-
-        logger.info(
-            f"[MATCH] Matched transaction to {payment_instrument.display_name} "
-            f"({payment_instrument.last_four_digits or payment_instrument.account_identifier})"
-        )
+        else:
+            logger.warning(
+                f"[MATCH] No instrument for: {parsed_transaction.merchant_name!r} "
+                f"last4={parsed_transaction.card_last_four!r} "
+                f"p2p={parsed_transaction.p2p_source!r} "
+                f"type={parsed_transaction.transaction_type!r} — "
+                f"creating unlinked NormalizedTransaction"
+            )
 
         # Normalize merchant name
         merchant_normalized = normalize_merchant_name(parsed_transaction.merchant_name)
@@ -79,10 +85,10 @@ class PaymentInstrumentMatchingService:
             else None
         )
 
-        # Create normalized transaction
+        # Create normalized transaction (payment_instrument_id=None for unlinked)
         normalized_txn = NormalizedTransaction(
             parsed_transaction_id=parsed_transaction.id,
-            payment_instrument_id=payment_instrument.id,
+            payment_instrument_id=payment_instrument.id if payment_instrument else None,
             user_id=user_id,
             merchant_normalized=merchant_normalized,
             amount=parsed_transaction.amount,
@@ -104,9 +110,12 @@ class PaymentInstrumentMatchingService:
         db.add(normalized_txn)
         db.flush()
 
+        linked = payment_instrument.display_name if payment_instrument else "unlinked"
         logger.info(
-            f"[NORMALIZE] Created normalized transaction: "
-            f"{normalized_txn.merchant_normalized} ${normalized_txn.amount} ({normalized_txn.category})"
+            f"[NORMALIZE] {linked}: "
+            f"{normalized_txn.merchant_normalized} ${normalized_txn.amount} "
+            f"date={normalized_txn.transaction_date.date()} "
+            f"category={normalized_txn.category}"
         )
 
         return normalized_txn
