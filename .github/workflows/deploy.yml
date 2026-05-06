@@ -192,6 +192,7 @@ jobs:
           SSH_KEY:  ${{ secrets.EC2_SSH_KEY }}
           BACKEND_IMAGE:  ${{ env.BACKEND_IMAGE }}
           FRONTEND_IMAGE: ${{ env.FRONTEND_IMAGE }}
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
         run: |
           printf '%s\n' "$SSH_KEY" | tr -d '\r' > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
@@ -207,6 +208,10 @@ jobs:
               -i /tmp/deploy_key $EC2_USER@$EC2_HOST << ENDSSH
             set -e
             cd /opt/spendi
+
+            # Re-authenticate with ECR (tokens expire every 12h)
+            aws ecr get-login-password --region $AWS_REGION | \
+              docker login --username AWS --password-stdin $ECR_REGISTRY
 
             # Pull latest images
             docker pull $BACKEND_IMAGE
