@@ -11,6 +11,7 @@ interface Transaction {
   transaction_date: string;
   transaction_type: string;
   direction?: string;
+  p2p_source?: string | null;
   category: string;
   category_confidence: number | null;
   reimbursement_status: string;
@@ -30,6 +31,12 @@ interface TransactionListProps {
   loading: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
+}
+
+function getProviderBadge(source: string | null | undefined) {
+  if (source === 'venmo') return { label: 'Venmo', className: 'bg-blue-50 text-blue-700' };
+  if (source === 'zelle') return { label: 'Zelle', className: 'bg-purple-50 text-purple-700' };
+  return null;
 }
 
 function getReimbursementBadge(status: string) {
@@ -64,6 +71,7 @@ function formatDate(dateString: string): string {
 
 function TransactionCard({ transaction }: { transaction: Transaction }) {
   const badge = getReimbursementBadge(transaction.reimbursement_status);
+  const providerBadge = getProviderBadge(transaction.p2p_source);
   const isIncoming = transaction.direction === "incoming";
 
   return (
@@ -76,6 +84,11 @@ function TransactionCard({ transaction }: { transaction: Transaction }) {
               <h3 className="font-semibold text-gray-900">
                 {transaction.merchant_normalized}
               </h3>
+              {providerBadge && (
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${providerBadge.className}`}>
+                  {providerBadge.label}
+                </span>
+              )}
             </div>
 
             <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">

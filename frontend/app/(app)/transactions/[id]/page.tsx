@@ -236,6 +236,20 @@ export default function TransactionDetailPage() {
                       <dd className="text-sm font-medium text-gray-900">{pi.issuer}</dd>
                     </div>
                   )}
+                  {transaction.p2p_source && (
+                    <div className="flex px-4 py-3 bg-white">
+                      <dt className="w-40 shrink-0 text-sm text-gray-500">Provider</dt>
+                      <dd className="text-sm font-medium text-gray-900">
+                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                          transaction.p2p_source === 'venmo'
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'bg-purple-50 text-purple-700'
+                        }`}>
+                          {transaction.p2p_source.charAt(0).toUpperCase() + transaction.p2p_source.slice(1)}
+                        </span>
+                      </dd>
+                    </div>
+                  )}
                 </dl>
               </section>
 

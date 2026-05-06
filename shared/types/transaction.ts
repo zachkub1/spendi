@@ -77,6 +77,8 @@ export interface NormalizedTransaction {
   net_amount: string;
   /** Money-flow direction relative to the user */
   direction: TransactionDirection;
+  /** "venmo" | "zelle" | null for card transactions */
+  p2p_source: string | null;
   /** null for transactions that couldn't be matched to a registered card */
   payment_instrument: PaymentInstrument | null;
   created_at: string;

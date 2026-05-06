@@ -86,6 +86,7 @@ class TransactionResponse(BaseModel):
     reimbursed_amount: Decimal
     net_amount: Decimal
     direction: str = "outgoing"
+    p2p_source: Optional[str] = None
     payment_instrument: Optional[PaymentInstrumentResponse] = None
     created_at: datetime
 

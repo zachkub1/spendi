@@ -37,6 +37,8 @@ interface Transaction {
   currency: string;
   transaction_date: string;
   transaction_type: string;
+  direction?: string;
+  p2p_source?: string | null;
   category: string;
   category_confidence: number | null;
   reimbursement_status: string;
