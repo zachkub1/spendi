@@ -197,7 +197,10 @@ jobs:
           chmod 600 /tmp/deploy_key
           ssh-keygen -l -f /tmp/deploy_key
 
-          ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key $EC2_USER@$EC2_HOST << ENDSSH
+          ssh -o StrictHostKeyChecking=no \
+              -o ServerAliveInterval=60 \
+              -o ServerAliveCountMax=10 \
+              -i /tmp/deploy_key $EC2_USER@$EC2_HOST << ENDSSH
             set -e
             cd /opt/spendi
 
