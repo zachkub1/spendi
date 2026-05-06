@@ -55,7 +55,7 @@ export function SpendingChart({ data, year, loading }: Props) {
 
   const chartData = data.map((d) => ({
     month: d.month,
-    'Net Spending': parseFloat(d.net),
+    Spending: parseFloat(d.total_amount),
     Reimbursed: parseFloat(d.reimbursed),
   }));
 
@@ -80,7 +80,7 @@ export function SpendingChart({ data, year, loading }: Props) {
     );
   }
 
-  const hasData = data.some((d) => parseFloat(d.net) > 0 || parseFloat(d.reimbursed) > 0);
+  const hasData = data.some((d) => parseFloat(d.total_amount) > 0 || parseFloat(d.reimbursed) > 0);
 
   if (!hasData) {
     return (
@@ -119,7 +119,7 @@ export function SpendingChart({ data, year, loading }: Props) {
           iconSize={8}
           wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
         />
-        <Bar dataKey="Net Spending" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={40} />
+        <Bar dataKey="Spending" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={40} />
         <Bar dataKey="Reimbursed" fill="#22c55e" radius={[3, 3, 0, 0]} maxBarSize={40} />
       </BarChart>
     </ResponsiveContainer>

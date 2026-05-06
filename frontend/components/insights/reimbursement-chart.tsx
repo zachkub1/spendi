@@ -50,7 +50,7 @@ export function ReimbursementChart({ data, loading }: Props) {
 
   const chartData = data.map((d) => ({
     year: d.year,
-    'Net Spending': parseFloat(d.net),
+    Spending: parseFloat(d.total_amount),
     Reimbursed: parseFloat(d.reimbursed),
   }));
 
@@ -108,7 +108,7 @@ export function ReimbursementChart({ data, loading }: Props) {
           iconSize={8}
           wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
         />
-        <Bar dataKey="Net Spending" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={60} />
+        <Bar dataKey="Spending" fill="#3b82f6" radius={[3, 3, 0, 0]} maxBarSize={60} />
         <Bar dataKey="Reimbursed" fill="#22c55e" radius={[3, 3, 0, 0]} maxBarSize={60} />
       </BarChart>
     </ResponsiveContainer>
