@@ -12,9 +12,10 @@ env:
   ECR_FRONTEND_REPO: spendi-frontend
 
 permissions:
-  id-token: write
-  contents: read
-  security-events: write
+  id-token: write        # AWS OIDC authentication
+  contents: read         # actions/checkout
+  security-events: write # CodeQL SARIF upload
+  actions: read          # CodeQL telemetry (workflow-run API)
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
