@@ -284,38 +284,52 @@ async def match_p2p_to_transaction(
             detail="Target transaction not found",
         )
 
-    target_remaining = target.amount - (target.reimbursed_amount or Decimal("0.00"))
+    # Check if a link for this exact (p2p, target) pair already exists.
+    # If so, treat this as an update (upsert) — atomically reverse the old
+    # allocation and apply the new one, avoiding a unique-constraint violation.
+    existing_link = db.query(ReimbursementLink).filter(
+        ReimbursementLink.p2p_transaction_id == p2p_txn.id,
+        ReimbursementLink.target_transaction_id == target.id,
+    ).first()
 
-    # Determine the amount to allocate for this link
-    if body.amount is not None:
-        link_amount = body.amount
+    if existing_link:
+        # Restore the capacity that the old link consumed so we can re-validate
+        # against the true available balances.
+        effective_p2p_remaining = p2p_remaining + existing_link.amount
+        effective_target_remaining = (
+            target.amount - (target.reimbursed_amount or Decimal("0.00")) + existing_link.amount
+        )
+        link_amount = body.amount if body.amount is not None else min(effective_p2p_remaining, effective_target_remaining)
+
+        if link_amount <= Decimal("0.00"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Link amount must be greater than zero.")
+        if link_amount > effective_p2p_remaining:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Link amount {link_amount} exceeds P2P remaining balance {effective_p2p_remaining}.")
+
+        # Reverse old contribution, apply new one
+        base_reimbursed = (target.reimbursed_amount or Decimal("0.00")) - existing_link.amount
+        existing_link.amount = link_amount
+        logger.info("[P2P] Rematch (upsert): p2p_txn=%s -> target=%s old_amount=%s new_amount=%s user=%s",
+                    txn_id, target.id, existing_link.amount, link_amount, current_user.id)
     else:
-        link_amount = min(p2p_remaining, target_remaining)
+        target_remaining = target.amount - (target.reimbursed_amount or Decimal("0.00"))
+        link_amount = body.amount if body.amount is not None else min(p2p_remaining, target_remaining)
 
-    if link_amount <= Decimal("0.00"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Link amount must be greater than zero.",
-        )
-    if link_amount > p2p_remaining:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Link amount {link_amount} exceeds P2P remaining balance {p2p_remaining}.",
-        )
+        if link_amount <= Decimal("0.00"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Link amount must be greater than zero.")
+        if link_amount > p2p_remaining:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Link amount {link_amount} exceeds P2P remaining balance {p2p_remaining}.")
 
-    # Create the junction row
-    link = ReimbursementLink(
-        p2p_transaction_id=p2p_txn.id,
-        target_transaction_id=target.id,
-        amount=link_amount,
-    )
-    db.add(link)
+        db.add(ReimbursementLink(p2p_transaction_id=p2p_txn.id, target_transaction_id=target.id, amount=link_amount))
+        base_reimbursed = target.reimbursed_amount or Decimal("0.00")
+        logger.info("[P2P] Matched: p2p_txn=%s -> target=%s link_amount=%s user=%s",
+                    txn_id, target.id, link_amount, current_user.id)
 
-    # Update target reimbursement accounting
-    new_reimbursed = (target.reimbursed_amount or Decimal("0.00")) + link_amount
+    # Recompute target reimbursement state
+    new_reimbursed = base_reimbursed + link_amount
     if new_reimbursed >= target.amount:
         target.reimbursement_status = ReimbursementStatus.COMPLETE
-        target.reimbursed_amount = target.amount  # cap at full amount
+        target.reimbursed_amount = target.amount
         target.net_amount = Decimal("0.00")
     else:
         target.reimbursement_status = ReimbursementStatus.PARTIAL
@@ -324,11 +338,6 @@ async def match_p2p_to_transaction(
 
     db.commit()
     db.refresh(p2p_txn)
-
-    logger.info(
-        "[P2P] Matched: p2p_txn=%s -> target=%s link_amount=%s user=%s",
-        txn_id, target.id, link_amount, current_user.id,
-    )
     return P2PTransactionResponse(**_p2p_response(p2p_txn))
 
 

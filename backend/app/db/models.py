@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey, Enum as SQLEnum, Numeric
+from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey, Enum as SQLEnum, Numeric, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
@@ -317,11 +317,13 @@ class ReimbursementLink(Base):
     expense transactions, supporting partial and split reimbursements.
     """
     __tablename__ = "reimbursement_links"
+    __table_args__ = (
+        UniqueConstraint('p2p_transaction_id', 'target_transaction_id', name='uq_reimbursement_link_pair'),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     p2p_transaction_id = Column(UUID(as_uuid=True), ForeignKey("normalized_transactions.id"), nullable=False, index=True)
     target_transaction_id = Column(UUID(as_uuid=True), ForeignKey("normalized_transactions.id"), nullable=False)
-    # Portion of the P2P payment allocated to this expense
     amount = Column(Numeric(12, 2), nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 

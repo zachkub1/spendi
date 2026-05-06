@@ -28,6 +28,8 @@ def upgrade() -> None:
         sa.Column('target_transaction_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('normalized_transactions.id'), nullable=False),
         sa.Column('amount', sa.Numeric(12, 2), nullable=False),
         sa.Column('created_at', sa.DateTime(), nullable=False),
+        # Enforce one link per (P2P payment, expense) pair — prevents duplicate rows
+        sa.UniqueConstraint('p2p_transaction_id', 'target_transaction_id', name='uq_reimbursement_link_pair'),
     )
     op.create_index(
         'ix_reimbursement_links_p2p_transaction_id',
