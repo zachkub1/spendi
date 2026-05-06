@@ -193,7 +193,9 @@ jobs:
           BACKEND_IMAGE:  ${{ env.BACKEND_IMAGE }}
           FRONTEND_IMAGE: ${{ env.FRONTEND_IMAGE }}
         run: |
-          echo "$SSH_KEY" > /tmp/deploy_key && chmod 600 /tmp/deploy_key
+          printf '%s\n' "$SSH_KEY" | tr -d '\r' > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh-keygen -l -f /tmp/deploy_key
 
           ssh -o StrictHostKeyChecking=no -i /tmp/deploy_key $EC2_USER@$EC2_HOST << ENDSSH
             set -e
