@@ -91,14 +91,16 @@ async def connect_gmail(
     """Connect Gmail account using OAuth code."""
     # Validate state to prevent CSRF
     if not request.state:
+        logger.warning("[EMAIL_AUTH] /email/connect called without state by user %s", current_user.id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing OAuth state parameter",
         )
 
+    logger.info("[EMAIL_AUTH] Validating state (first 8): %s... for user %s", request.state[:8], current_user.id)
     from app.auth.service import AuthService
     if not AuthService.validate_oauth_state(request.state):
-        logger.warning("[EMAIL_AUTH] Invalid OAuth state from user %s", current_user.id)
+        logger.warning("[EMAIL_AUTH] State not found in Redis — expired or already used. User %s", current_user.id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired OAuth state",

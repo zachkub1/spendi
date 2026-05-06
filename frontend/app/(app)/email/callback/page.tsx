@@ -17,9 +17,16 @@ function CallbackContent() {
   useEffect(() => {
     const handleCallback = async () => {
       const code = searchParams.get('code');
+      const state = searchParams.get('state'); // Google echoes state back in the redirect URL
 
       if (!code) {
         setError('No authorization code received');
+        return;
+      }
+
+      if (!state) {
+        console.error('[OAuth] No state in callback URL — possible CSRF or redirect misconfiguration');
+        setError('Missing OAuth state. Please try connecting again.');
         return;
       }
 
@@ -33,11 +40,12 @@ function CallbackContent() {
       hasProcessedRef.current = true;
 
       try {
-        console.log('Exchanging OAuth code for tokens...');
-        console.log('Code (first 20 chars):', code.substring(0, 20) + '...');
+        console.log('[OAuth] Exchanging code for tokens...');
+        console.log('[OAuth] Code (first 20 chars):', code.substring(0, 20) + '...');
+        console.log('[OAuth] State (first 8 chars):', state.substring(0, 8) + '...');
 
-        // Send code to backend to exchange for tokens
-        await apiClient.post('/email/connect', { code });
+        // Send code + state to backend. Backend validates state against Redis to prevent CSRF.
+        await apiClient.post('/email/connect', { code, state });
 
         console.log('Successfully connected Gmail account');
         // Redirect back to email page
