@@ -40,8 +40,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Content-Security-Policy for the API (JSON only, no scripts served)
         response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
 
-        # Remove server banner
-        response.headers.pop("server", None)
-        response.headers.pop("x-powered-by", None)
+        # Remove server banner (MutableHeaders has no .pop; use del with guard)
+        for header in ("server", "x-powered-by"):
+            if header in response.headers:
+                del response.headers[header]
 
         return response

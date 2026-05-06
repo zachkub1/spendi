@@ -72,7 +72,8 @@ services:
     environment:
       ENVIRONMENT: production
       REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
-    command: ["celery", "-A", "app.jobs.worker.celery_app", "beat", "--loglevel=info"]
+    command: ["celery", "-A", "app.jobs.worker.celery_app", "beat",
+              "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
     depends_on:
       redis:
         condition: service_healthy
