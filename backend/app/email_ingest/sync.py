@@ -341,6 +341,8 @@ class EmailSyncService:
 
             # Backfill: normalize any ParsedTransaction from previous syncs that
             # still has no NormalizedTransaction (e.g. instrument was added after sync).
+            # ParsedTransaction rows only exist for successfully parsed emails,
+            # so no status filter needed — presence alone implies success.
             unmatched_pts = (
                 db.query(ParsedTransaction)
                 .outerjoin(
@@ -349,7 +351,6 @@ class EmailSyncService:
                 )
                 .filter(
                     ParsedTransaction.email_account_id == email_account.id,
-                    ParsedTransaction.parsing_status == "success",
                     NormalizedTransaction.id.is_(None),
                 )
                 .all()
