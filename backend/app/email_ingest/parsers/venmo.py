@@ -1,8 +1,12 @@
 """
 Venmo transaction email parser.
+
+Handles three email families:
+  1. "You paid X $Y"         → outgoing payment
+  2. "X paid you $Y"         → incoming transfer
+  3. "Transfer to your bank" → bank cashout (transfer)
 """
 import re
-from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional
 from .base import EmailParser, ParsedTransactionData, ParseResult
@@ -14,80 +18,126 @@ class VenmoParser(EmailParser):
     provider = "venmo"
 
     SENDER_PATTERN = r"@venmo\.com$"
-    SUBJECT_PATTERN = r"You paid|You received"
-    AMOUNT_PATTERN = r"\$(\d{1,3}(?:,\d{3})*\.\d{2})"
-    PERSON_PAID_PATTERN = r"You paid ([^\$]+) \$"
-    PERSON_RECEIVED_PATTERN = r"([^\$]+) paid you \$"
-    # Venmo handle in body: "@username"
-    VENMO_HANDLE_PATTERN = r"@([\w]+)"
-    # Venmo transaction ID sometimes appears in footer links
-    VENMO_TX_ID_PATTERN = r"payment[_\-/](\w{8,})"
+    # Match any of the three families
+    SUBJECT_PATTERN = r"You paid|paid you|Transfer to your bank"
+
+    _AMOUNT_RE = re.compile(r"\$(\d{1,3}(?:,\d{3})*\.\d{2})")
+    _PERSON_PAID_RE = re.compile(r"You paid (.+?) \$")     # "You paid John $"
+    _PERSON_RECV_RE = re.compile(r"^(.+?) paid you \$")   # "John paid you $"
+    _VENMO_HANDLE_RE = re.compile(r"@([\w]+)")
+    _VENMO_TX_ID_RE = re.compile(r"payment[_\-/](\w{8,})")
 
     def can_parse(self, sender: str, subject: str) -> bool:
-        """Check if email is from Venmo."""
         return bool(
-            re.search(self.SENDER_PATTERN, sender, re.IGNORECASE) and
-            re.search(self.SUBJECT_PATTERN, subject)
+            re.search(self.SENDER_PATTERN, sender, re.IGNORECASE)
+            and re.search(self.SUBJECT_PATTERN, subject, re.IGNORECASE)
         )
 
     def parse(self, subject: str, body: str) -> ParseResult:
-        """Extract transaction data from Venmo email."""
         try:
-            # Extract amount from subject
-            amount_match = re.search(self.AMOUNT_PATTERN, subject)
-            if not amount_match:
-                return ParseResult(
-                    status="non_transaction",
-                    reason="no_amount_in_subject"
-                )
-            amount = Decimal(amount_match.group(1).replace(',', ''))
+            # ── Bank transfer out (cashout) ────────────────────────────────
+            if re.search(r"Transfer to your bank", subject, re.IGNORECASE):
+                return self._parse_cashout(subject, body)
 
-            # Determine if payment or receipt
-            if "You paid" in subject:
-                merchant_match = re.search(self.PERSON_PAID_PATTERN, subject)
-                transaction_type = "payment"
-            else:
-                merchant_match = re.search(self.PERSON_RECEIVED_PATTERN, subject)
-                transaction_type = "transfer"
+            # ── Outgoing payment: "You paid X $Y" ─────────────────────────
+            if re.search(r"You paid", subject, re.IGNORECASE):
+                return self._parse_outgoing(subject, body)
 
-            if not merchant_match:
-                return ParseResult(
-                    status="parse_error",
-                    reason="amount_found_but_no_person_name"
-                )
-            merchant = merchant_match.group(1).strip()
+            # ── Incoming receipt: "X paid you $Y" ─────────────────────────
+            if re.search(r"paid you", subject, re.IGNORECASE):
+                return self._parse_incoming(subject, body)
 
-            # Try to enrich merchant name with Venmo handle from body (@username)
-            handle_match = re.search(self.VENMO_HANDLE_PATTERN, body)
-            if handle_match:
-                merchant = f"{merchant} (@{handle_match.group(1)})"
-
-            # Try to extract transaction ID from body links
-            p2p_transaction_id: Optional[str] = None
-            txid_match = re.search(self.VENMO_TX_ID_PATTERN, body, re.IGNORECASE)
-            if txid_match:
-                p2p_transaction_id = txid_match.group(1)
-
-            # Venmo emails typically don't include the exact date in parseable format
-            # Use current date as approximation
-            transaction_date = datetime.now(timezone.utc)
-
-            return ParseResult(
-                status="transaction",
-                data=ParsedTransactionData(
-                    merchant_name=merchant,
-                    amount=amount,
-                    transaction_date=transaction_date,
-                    card_last_four=None,
-                    transaction_type=transaction_type,
-                    confidence_score=90.0,  # Slightly lower due to date approximation
-                    p2p_source="venmo",
-                    p2p_transaction_id=p2p_transaction_id,
-                )
-            )
+            return ParseResult(status="non_transaction", reason="unrecognized_venmo_subject")
 
         except Exception as e:
-            return ParseResult(
-                status="parse_error",
-                reason=f"unexpected_error: {str(e)}"
-            )
+            return ParseResult(status="parse_error", reason=f"unexpected_error: {str(e)}")
+
+    # ── Individual parsers ─────────────────────────────────────────────────────
+
+    def _parse_outgoing(self, subject: str, body: str) -> ParseResult:
+        amount = self._extract_amount(subject)
+        if amount is None:
+            return ParseResult(status="non_transaction", reason="no_amount_in_subject")
+
+        merchant_match = self._PERSON_PAID_RE.search(subject)
+        if not merchant_match:
+            return ParseResult(status="parse_error", reason="amount_found_but_no_person_name")
+        merchant = self._enrich_with_handle(merchant_match.group(1).strip(), body)
+
+        return ParseResult(
+            status="transaction",
+            data=ParsedTransactionData(
+                merchant_name=merchant,
+                amount=amount,
+                transaction_date=None,  # sync.py falls back to received_at
+                card_last_four=None,
+                transaction_type="payment",
+                confidence_score=92.0,
+                direction="outgoing",
+                p2p_source="venmo",
+                p2p_transaction_id=self._extract_tx_id(body),
+            ),
+        )
+
+    def _parse_incoming(self, subject: str, body: str) -> ParseResult:
+        amount = self._extract_amount(subject)
+        if amount is None:
+            return ParseResult(status="non_transaction", reason="no_amount_in_subject")
+
+        merchant_match = self._PERSON_RECV_RE.search(subject)
+        if not merchant_match:
+            return ParseResult(status="parse_error", reason="amount_found_but_no_person_name")
+        merchant = self._enrich_with_handle(merchant_match.group(1).strip(), body)
+
+        return ParseResult(
+            status="transaction",
+            data=ParsedTransactionData(
+                merchant_name=merchant,
+                amount=amount,
+                transaction_date=None,
+                card_last_four=None,
+                transaction_type="transfer",
+                confidence_score=92.0,
+                direction="incoming",
+                p2p_source="venmo",
+                p2p_transaction_id=self._extract_tx_id(body),
+            ),
+        )
+
+    def _parse_cashout(self, subject: str, body: str) -> ParseResult:
+        # Amount may be in subject or body
+        amount = self._extract_amount(subject) or self._extract_amount(body)
+        if amount is None:
+            return ParseResult(status="parse_error", reason="no_amount_found_in_cashout")
+
+        return ParseResult(
+            status="transaction",
+            data=ParsedTransactionData(
+                merchant_name="Venmo Bank Transfer",
+                amount=amount,
+                transaction_date=None,
+                card_last_four=None,
+                transaction_type="transfer",
+                confidence_score=88.0,
+                direction="transfer",
+                p2p_source="venmo",
+                p2p_transaction_id=self._extract_tx_id(body),
+            ),
+        )
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _extract_amount(self, text: str) -> Optional[Decimal]:
+        m = self._AMOUNT_RE.search(text)
+        return Decimal(m.group(1).replace(",", "")) if m else None
+
+    def _extract_tx_id(self, body: str) -> Optional[str]:
+        m = self._VENMO_TX_ID_RE.search(body, re.IGNORECASE)
+        return m.group(1) if m else None
+
+    def _enrich_with_handle(self, name: str, body: str) -> str:
+        """Append Venmo handle from body if present."""
+        m = self._VENMO_HANDLE_RE.search(body)
+        if m:
+            return f"{name} (@{m.group(1)})"
+        return name

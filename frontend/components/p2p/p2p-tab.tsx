@@ -6,26 +6,31 @@ import { MatchTransactionModal } from "./match-transaction-modal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface ReimbursementLink {
+  id: string;
+  target_transaction_id: string;
+  target_merchant: string;
+  target_amount: string;
+  target_date: string;
+  amount: string;
+  created_at: string;
+}
+
 export interface P2PTransaction {
   id: string;
   sender_name: string | null;
   merchant_normalized: string;
   amount: string;
+  amount_remaining: string;
   currency: string;
   transaction_date: string;
   transaction_type: string;
+  direction?: string;
   p2p_source: string | null;
   p2p_transaction_id: string | null;
   category: string;
   reimbursement_status: string;
-  matched_to_transaction_id: string | null;
-  matched_to_transaction: {
-    id: string;
-    merchant_normalized: string;
-    amount: string;
-    transaction_date: string;
-    category: string;
-  } | null;
+  matches: ReimbursementLink[];
   created_at: string;
 }
 
@@ -81,6 +86,7 @@ export function P2PTab({ source }: P2PTabProps) {
   const [editingSenderTxnId, setEditingSenderTxnId] = useState<string | null>(null);
   const [senderDraft, setSenderDraft] = useState("");
   const [savingSender, setSavingSender] = useState(false);
+  // tracks the link id currently being deleted (not the txn id)
   const [unmatchingId, setUnmatchingId] = useState<string | null>(null);
   const [typeChangeId, setTypeChangeId] = useState<string | null>(null);
 
@@ -132,13 +138,13 @@ export function P2PTab({ source }: P2PTabProps) {
     }
   };
 
-  // ── Unmatch ───────────────────────────────────────────────────────────────
+  // ── Unmatch (by link id) ──────────────────────────────────────────────────
 
-  const unmatch = async (txnId: string) => {
-    setUnmatchingId(txnId);
+  const unmatch = async (txnId: string, linkId: string) => {
+    setUnmatchingId(linkId);
     try {
       const updated = await apiClient.delete<P2PTransaction>(
-        `/transactions/p2p/${txnId}/match`
+        `/transactions/p2p/${txnId}/match/${linkId}`
       );
       setTransactions((prev) => prev.map((t) => (t.id === txnId ? updated : t)));
     } catch (err) {
@@ -176,8 +182,9 @@ export function P2PTab({ source }: P2PTabProps) {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const matched = transactions.filter((t) => t.matched_to_transaction_id);
-  const unmatched = transactions.filter((t) => !t.matched_to_transaction_id);
+  // "partially allocated" counts as matched; fully unallocated is unmatched
+  const matched = transactions.filter((t) => parseFloat(t.amount_remaining) < parseFloat(t.amount));
+  const unmatched = transactions.filter((t) => parseFloat(t.amount_remaining) >= parseFloat(t.amount));
 
   return (
     <div className="space-y-5">
@@ -348,13 +355,13 @@ interface RowProps {
   senderDraft: string;
   setSenderDraft: (v: string) => void;
   savingSender: boolean;
-  unmatchingId: string | null;
+  unmatchingId: string | null;  // tracks link id being deleted
   typeChangeId: string | null;
   onEditSender: (txn: P2PTransaction) => void;
   onSaveSender: (id: string) => void;
   onCancelEditSender: () => void;
   onMatch: () => void;
-  onUnmatch: (id: string) => void;
+  onUnmatch: (txnId: string, linkId: string) => void;
   onTypeChange: (id: string, category: string) => void;
 }
 
@@ -363,11 +370,13 @@ function TransactionRow({
   savingSender, unmatchingId, typeChangeId,
   onEditSender, onSaveSender, onCancelEditSender, onMatch, onUnmatch, onTypeChange,
 }: RowProps) {
-  const isMatched = Boolean(txn.matched_to_transaction_id);
+  const hasMatches = txn.matches.length > 0;
+  const remaining = parseFloat(txn.amount_remaining);
+  const isPartial = hasMatches && remaining > 0;
   const displayName = txn.sender_name || txn.merchant_normalized;
 
   return (
-    <div className={`bg-white rounded-xl border p-4 ${isMatched ? "border-green-200" : "border-gray-200"}`}>
+    <div className={`bg-white rounded-xl border p-4 ${hasMatches ? "border-green-200" : "border-gray-200"}`}>
       <div className="flex items-start gap-3">
         {/* Left: sender + details */}
         <div className="flex-1 min-w-0">
@@ -424,19 +433,35 @@ function TransactionRow({
             <span className={`px-1.5 py-0.5 rounded font-medium ${sourceBadge}`}>
               {txn.p2p_source === "zelle" ? "Zelle" : "Venmo"}
             </span>
+            {isPartial && (
+              <span className="px-1.5 py-0.5 rounded font-medium bg-amber-100 text-amber-700">
+                {fmt(txn.amount_remaining)} remaining
+              </span>
+            )}
           </div>
 
-          {/* Matched badge */}
-          {isMatched && txn.matched_to_transaction && (
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-green-700">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>
-                Matched to{" "}
-                <strong>{txn.matched_to_transaction.merchant_normalized}</strong>{" "}
-                ({fmt(txn.matched_to_transaction.amount)})
-              </span>
+          {/* Match list */}
+          {txn.matches.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {txn.matches.map((link) => (
+                <div key={link.id} className="flex items-center gap-1.5 text-xs text-green-700">
+                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="flex-1">
+                    <strong>{link.target_merchant}</strong>{" "}
+                    — allocated {fmt(link.amount)}
+                    <span className="text-gray-400"> (expense: {fmt(link.target_amount)})</span>
+                  </span>
+                  <button
+                    onClick={() => onUnmatch(txn.id, link.id)}
+                    disabled={unmatchingId === link.id}
+                    className="ml-1 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors shrink-0"
+                  >
+                    {unmatchingId === link.id ? "…" : "Unmatch"}
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -459,15 +484,8 @@ function TransactionRow({
               ))}
             </select>
 
-            {isMatched ? (
-              <button
-                onClick={() => onUnmatch(txn.id)}
-                disabled={unmatchingId === txn.id}
-                className="px-2.5 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200 disabled:opacity-50 transition-colors"
-              >
-                {unmatchingId === txn.id ? "…" : "Unmatch"}
-              </button>
-            ) : (
+            {/* Match button visible whenever there's remaining balance */}
+            {remaining > 0 && (
               <button
                 onClick={onMatch}
                 className="px-2.5 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"

@@ -156,6 +156,9 @@ class ParsedTransaction(Base):
     p2p_transaction_id = Column(String(255), nullable=True)  # Zelle transaction # or Venmo ID
     p2p_source = Column(String(50), nullable=True)  # "zelle", "venmo", or None
 
+    # Money-flow direction: "outgoing" | "incoming" | "transfer"
+    direction = Column(String(20), nullable=False, default="outgoing")
+
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
@@ -277,13 +280,13 @@ class NormalizedTransaction(Base):
     # Versioning for audit trail (future use for overrides)
     version = Column(String(50), default="1.0", nullable=False)
 
+    # Money-flow direction: "outgoing" | "incoming" | "transfer"
+    direction = Column(String(20), nullable=False, default="outgoing")
+
     # P2P metadata (Zelle / Venmo) — populated for transfer/payment transactions
     sender_name = Column(String(255), nullable=True)       # Customizable display name for P2P sender
     p2p_transaction_id = Column(String(255), nullable=True)  # Zelle transaction # or Venmo ID
     p2p_source = Column(String(50), nullable=True)         # "zelle", "venmo", or None
-
-    # Reimbursement matching: links an incoming P2P transfer to the expense it covers
-    matched_to_transaction_id = Column(UUID(as_uuid=True), ForeignKey("normalized_transactions.id"), nullable=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
@@ -292,15 +295,38 @@ class NormalizedTransaction(Base):
     parsed_transaction = relationship("ParsedTransaction", back_populates="normalized_transaction")
     payment_instrument = relationship("PaymentInstrument", back_populates="normalized_transactions")
     user = relationship("User")
-    matched_to_transaction = relationship(
-        "NormalizedTransaction",
-        foreign_keys=[matched_to_transaction_id],
-        remote_side="NormalizedTransaction.id",
-        uselist=False,
+    reimbursement_links_given = relationship(
+        "ReimbursementLink",
+        foreign_keys="[ReimbursementLink.p2p_transaction_id]",
+        back_populates="p2p_transaction",
+        cascade="all, delete-orphan",
+    )
+    reimbursement_links_received = relationship(
+        "ReimbursementLink",
+        foreign_keys="[ReimbursementLink.target_transaction_id]",
+        back_populates="target_transaction",
     )
 
     def __repr__(self):
         return f"<NormalizedTransaction {self.merchant_normalized} ${self.amount} ({self.category})>"
+
+
+class ReimbursementLink(Base):
+    """
+    Junction table that maps a single incoming P2P payment to one or more
+    expense transactions, supporting partial and split reimbursements.
+    """
+    __tablename__ = "reimbursement_links"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    p2p_transaction_id = Column(UUID(as_uuid=True), ForeignKey("normalized_transactions.id"), nullable=False, index=True)
+    target_transaction_id = Column(UUID(as_uuid=True), ForeignKey("normalized_transactions.id"), nullable=False)
+    # Portion of the P2P payment allocated to this expense
+    amount = Column(Numeric(12, 2), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    p2p_transaction = relationship("NormalizedTransaction", foreign_keys=[p2p_transaction_id], back_populates="reimbursement_links_given")
+    target_transaction = relationship("NormalizedTransaction", foreign_keys=[target_transaction_id], back_populates="reimbursement_links_received")
 
 
 class FeedbackType(str, enum.Enum):

@@ -55,6 +55,8 @@ export interface PaymentInstrument {
   updated_at: string;
 }
 
+export type TransactionDirection = 'incoming' | 'outgoing' | 'transfer';
+
 /** Mirrors backend TransactionResponse Pydantic schema. */
 export interface NormalizedTransaction {
   id: string;
@@ -71,8 +73,10 @@ export interface NormalizedTransaction {
   reimbursement_status: ReimbursementStatus;
   /** JSON-serialized Decimal */
   reimbursed_amount: string;
-  /** JSON-serialized Decimal */
+  /** JSON-serialized Decimal — negative for incoming transfers */
   net_amount: string;
+  /** Money-flow direction relative to the user */
+  direction: TransactionDirection;
   /** null for transactions that couldn't be matched to a registered card */
   payment_instrument: PaymentInstrument | null;
   created_at: string;

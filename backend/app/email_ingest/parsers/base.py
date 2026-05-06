@@ -13,10 +13,16 @@ class ParsedTransactionData:
     """Data class for parsed transaction information."""
     merchant_name: str
     amount: Decimal
-    transaction_date: datetime
+    # None means the parser couldn't extract a date; sync.py falls back to received_at
+    transaction_date: Optional[datetime]
     card_last_four: Optional[str]
     transaction_type: str  # purchase, refund, payment, transfer
     confidence_score: float  # 0-100
+    # Explicit money-flow direction so net_amount can be signed correctly:
+    #   outgoing = debit/expense (positive net_amount)
+    #   incoming = credit/income (negative net_amount, reduces net spending)
+    #   transfer  = bank cashout or neutral movement
+    direction: str = "outgoing"  # "incoming" | "outgoing" | "transfer"
     p2p_transaction_id: Optional[str] = None  # Zelle/Venmo transaction reference ID
     p2p_source: Optional[str] = None  # "zelle", "venmo", or None for card transactions
 

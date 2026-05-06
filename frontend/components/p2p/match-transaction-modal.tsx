@@ -8,6 +8,7 @@ interface P2PTransaction {
   sender_name: string | null;
   merchant_normalized: string;
   amount: string;
+  amount_remaining: string;
   transaction_date: string;
   p2p_source: string | null;
   p2p_transaction_id: string | null;
@@ -33,6 +34,7 @@ export function MatchTransactionModal({ p2pTxn, onClose, onMatched }: MatchTrans
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [amount, setAmount] = useState("");
   const [matching, setMatching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,9 +69,11 @@ export function MatchTransactionModal({ p2pTxn, onClose, onMatched }: MatchTrans
     setMatching(true);
     setError(null);
     try {
+      const body: Record<string, unknown> = { target_transaction_id: selected };
+      if (amount && parseFloat(amount) > 0) body.amount = parseFloat(amount);
       const updated = await apiClient.patch<P2PTransaction>(
         `/transactions/p2p/${p2pTxn.id}/match`,
-        { target_transaction_id: selected }
+        body
       );
       onMatched(updated);
     } catch (err) {
@@ -96,7 +100,7 @@ export function MatchTransactionModal({ p2pTxn, onClose, onMatched }: MatchTrans
               <p className="text-sm text-gray-500 mt-0.5">
                 Select which expense{" "}
                 <strong>{p2pTxn.sender_name || p2pTxn.merchant_normalized}</strong>&apos;s{" "}
-                {fmt(p2pTxn.amount)} payment is reimbursing
+                {fmt(p2pTxn.amount_remaining)} available payment is reimbursing
               </p>
             </div>
             <button
@@ -166,10 +170,28 @@ export function MatchTransactionModal({ p2pTxn, onClose, onMatched }: MatchTrans
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 space-y-2">
+        <div className="p-4 border-t border-gray-200 space-y-3">
           {error && (
             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{error}</p>
           )}
+
+          {/* Optional partial amount input */}
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500 block">
+              Amount to allocate (leave blank to use full remaining: {fmt(p2pTxn.amount_remaining)})
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              max={p2pTxn.amount_remaining}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder={p2pTxn.amount_remaining}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
           <div className="flex gap-3">
             <button
               onClick={onClose}

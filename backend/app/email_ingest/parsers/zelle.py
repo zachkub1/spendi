@@ -12,7 +12,7 @@ Handles three email families:
 """
 import re
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 from .base import EmailParser, ParsedTransactionData, ParseResult
@@ -166,8 +166,8 @@ class ZelleParser(EmailParser):
         acct_match = self._TD_ACCOUNT_RE.search(body)
         card_last_four = acct_match.group(1) if acct_match else None
 
-        # Date — try written date in body, fall back to current time
-        transaction_date = self._extract_written_date(body) or datetime.now(timezone.utc)
+        # Date — try written date in body; None falls back to received_at in sync.py
+        transaction_date = self._extract_written_date(body)
 
         # Confirmation number as transaction ID
         p2p_transaction_id: Optional[str] = None
@@ -187,8 +187,9 @@ class ZelleParser(EmailParser):
                 amount=amount,
                 transaction_date=transaction_date,
                 card_last_four=card_last_four,
-                transaction_type="transfer",  # Incoming deposit = transfer received
+                transaction_type="transfer",
                 confidence_score=92.0,
+                direction="incoming",  # TD Bank deposits are always money received
                 p2p_source="zelle",
                 p2p_transaction_id=p2p_transaction_id,
             ),
@@ -209,9 +210,10 @@ class ZelleParser(EmailParser):
         """
         text = f"{subject}\n{body}"
 
-        # Direction determines transaction_type
+        # Direction from subject keywords
         is_received = bool(re.search(r"received money|sent you", subject, re.IGNORECASE))
         transaction_type = "transfer" if is_received else "payment"
+        direction = "incoming" if is_received else "outgoing"
 
         # Amount — prefer labeled row in body, fall back to first $ in full text
         amount_match = self._LABELED_AMOUNT_RE.search(body)
@@ -226,12 +228,8 @@ class ZelleParser(EmailParser):
         sender_match = self._CHASE_SENDER_RE.search(body)
         merchant_name = sender_match.group(1).strip() if sender_match else "Zelle"
 
-        # Date — prefer labeled "Sent on\t...", fall back to any written date
-        transaction_date = (
-            self._extract_labeled_date(text)
-            or self._extract_written_date(text)
-            or datetime.now(timezone.utc)
-        )
+        # Date — prefer labeled "Sent on\t...", fall back to written date; None → received_at
+        transaction_date = self._extract_labeled_date(text) or self._extract_written_date(text)
 
         # Extract Chase transaction number: "Transaction number\t1234567890"
         p2p_transaction_id: Optional[str] = None
@@ -240,8 +238,10 @@ class ZelleParser(EmailParser):
             p2p_transaction_id = txid_match.group(1)
 
         logger.info(
-            "[ZELLE] Chase Zelle parsed: merchant=%r amount=%s date=%s type=%s txid=%s",
-            merchant_name, amount, transaction_date.date(), transaction_type, p2p_transaction_id or "n/a",
+            "[ZELLE] Chase Zelle parsed: merchant=%r amount=%s date=%s type=%s dir=%s txid=%s",
+            merchant_name, amount,
+            transaction_date.date() if transaction_date else "received_at",
+            transaction_type, direction, p2p_transaction_id or "n/a",
         )
 
         return ParseResult(
@@ -253,6 +253,7 @@ class ZelleParser(EmailParser):
                 card_last_four=None,
                 transaction_type=transaction_type,
                 confidence_score=92.0,
+                direction=direction,
                 p2p_source="zelle",
                 p2p_transaction_id=p2p_transaction_id,
             ),
@@ -274,18 +275,17 @@ class ZelleParser(EmailParser):
         if re.search(r"sent you", subject, re.IGNORECASE):
             merchant_match = self._PERSON_SENT_RE.search(subject)
             transaction_type = "transfer"
+            direction = "incoming"
         else:
             merchant_match = self._PERSON_RECEIVED_RE.search(subject)
             transaction_type = "payment"
+            direction = "outgoing"
 
         if not merchant_match:
             return ParseResult(status="parse_error", reason="amount_found_but_no_person_name")
         merchant = merchant_match.group(1).strip()
 
-        transaction_date = (
-            self._extract_written_date(body)
-            or datetime.now(timezone.utc)
-        )
+        transaction_date = self._extract_written_date(body)  # None → received_at in sync.py
 
         logger.info(
             "[ZELLE] Native Zelle parsed: merchant=%r amount=%s type=%s",
@@ -301,6 +301,7 @@ class ZelleParser(EmailParser):
                 card_last_four=None,
                 transaction_type=transaction_type,
                 confidence_score=90.0,
+                direction=direction,
                 p2p_source="zelle",
             ),
         )

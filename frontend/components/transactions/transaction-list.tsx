@@ -10,6 +10,7 @@ interface Transaction {
   currency: string;
   transaction_date: string;
   transaction_type: string;
+  direction?: string;
   category: string;
   category_confidence: number | null;
   reimbursement_status: string;
@@ -63,7 +64,7 @@ function formatDate(dateString: string): string {
 
 function TransactionCard({ transaction }: { transaction: Transaction }) {
   const badge = getReimbursementBadge(transaction.reimbursement_status);
-  const isReimbursement = transaction.transaction_type === "transfer";
+  const isIncoming = transaction.direction === "incoming";
 
   return (
     <Link href={`/transactions/${transaction.id}`}>
@@ -112,10 +113,10 @@ function TransactionCard({ transaction }: { transaction: Transaction }) {
           <div className="text-right ml-4">
             <div
               className={`text-lg font-semibold ${
-                isReimbursement ? "text-green-600" : "text-gray-900"
+                isIncoming ? "text-green-600" : "text-gray-900"
               }`}
             >
-              {isReimbursement && "+"}
+              {isIncoming ? "+" : ""}
               {formatCurrency(transaction.amount, transaction.currency)}
             </div>
 

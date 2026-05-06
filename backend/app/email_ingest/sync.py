@@ -268,19 +268,25 @@ class EmailSyncService:
 
                     if parse_result.status == "transaction":
                         # Successfully parsed transaction - create record
+                        # Parsers return None for transaction_date when they can't
+                        # extract a date from the email body; fall back to the
+                        # email's received_at timestamp (always present and reliable).
+                        txn_date = parse_result.data.transaction_date or received_at
+
                         parsed_txn = ParsedTransaction(
                             raw_email_id=raw_email.id,
                             email_account_id=email_account.id,
                             merchant_name=parse_result.data.merchant_name,
                             amount=parse_result.data.amount,
                             currency="USD",
-                            transaction_date=parse_result.data.transaction_date,
+                            transaction_date=txn_date,
                             card_last_four=parse_result.data.card_last_four,
                             transaction_type=parse_result.data.transaction_type,
                             confidence_score=parse_result.data.confidence_score,
                             parser_version=parser.get_version(),
                             p2p_transaction_id=parse_result.data.p2p_transaction_id,
                             p2p_source=parse_result.data.p2p_source,
+                            direction=parse_result.data.direction,
                         )
                         db.add(parsed_txn)
                         db.flush()  # Flush to get parsed_txn.id for matching
