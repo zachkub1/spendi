@@ -213,21 +213,26 @@ class TestPaymentInstrumentMatching:
         mock_db.flush.assert_called_once()
 
     def test_match_and_normalize_no_instrument(self, mock_db, user_id, parsed_transaction_card):
-        """Test normalize when no matching instrument found."""
-        # Setup mock to return None
+        """Test normalize when no matching instrument found.
+
+        match_and_normalize always produces a NormalizedTransaction.
+        When no instrument matches, payment_instrument_id is None (unlinked)
+        so the transaction still appears in the UI.
+        """
         mock_query = Mock()
         mock_query.filter.return_value.first.return_value = None
         mock_db.query.return_value = mock_query
 
-        # Execute
         result = PaymentInstrumentMatchingService.match_and_normalize(
             db=mock_db,
             parsed_transaction=parsed_transaction_card,
             user_id=user_id
         )
 
-        # Should return None
-        assert result is None
+        assert result is not None
+        assert result.payment_instrument_id is None
+        assert result.merchant_normalized is not None
+        assert result.amount == parsed_transaction_card.amount
 
     def test_merchant_normalization_applied(self, mock_db, user_id, credit_card_instrument):
         """Test that merchant normalization is applied during matching."""
