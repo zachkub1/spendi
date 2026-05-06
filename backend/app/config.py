@@ -17,6 +17,14 @@ class Settings:
     API_BASE_URL: str = os.getenv("API_BASE_URL", "http://localhost:8000")
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
+    @classmethod
+    def cors_origins(cls) -> list[str]:
+        """Return allowed CORS origins. CORS_ORIGINS env var wins (comma-separated)."""
+        raw = os.getenv("CORS_ORIGINS", "")
+        if raw:
+            return [o.strip() for o in raw.split(",") if o.strip()]
+        return [cls.FRONTEND_URL]
+
     # Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/spendi"
