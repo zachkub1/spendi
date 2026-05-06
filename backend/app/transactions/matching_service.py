@@ -75,12 +75,13 @@ class PaymentInstrumentMatchingService:
             transaction_type=parsed_transaction.transaction_type
         )
 
-        # Calculate net amount based on direction:
-        #   incoming transfers reduce net spending → stored as negative
-        #   outgoing purchases/payments increase net spending → stored as positive
+        # Calculate net amount based on direction.
+        # Incoming P2P (someone sent you money) starts at 0 — it only reduces
+        # a target expense's net_amount when explicitly matched as a reimbursement.
+        # Outgoing purchases/payments start positive (they ARE the spending).
         direction = getattr(parsed_transaction, 'direction', 'outgoing')
         net_amount = (
-            -parsed_transaction.amount if direction == "incoming" else parsed_transaction.amount
+            Decimal("0.00") if direction == "incoming" else parsed_transaction.amount
         )
 
         # For P2P transactions, use merchant_name as the initial sender_name

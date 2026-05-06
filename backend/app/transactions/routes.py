@@ -3,7 +3,7 @@ Transaction management routes.
 API endpoints for viewing and managing transactions, payment instruments, and categories.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -338,6 +338,20 @@ def _exclude_demo(query):
     )
 
 
+def _exclude_incoming_p2p(query):
+    """Exclude incoming P2P transfers from spending views.
+
+    Incoming Zelle/Venmo receipts are not spending — they only affect net_amount
+    on a matched expense transaction. They live in the P2P tab exclusively.
+    """
+    return query.filter(
+        or_(
+            NormalizedTransaction.p2p_source.is_(None),
+            NormalizedTransaction.direction != 'incoming',
+        )
+    )
+
+
 @router.get("/", response_model=List[TransactionResponse])
 async def list_transactions(
     db: Session = Depends(get_db),
@@ -360,6 +374,7 @@ async def list_transactions(
     )
 
     query = _exclude_demo(query)
+    query = _exclude_incoming_p2p(query)
 
     # Apply filters
     if category:
@@ -401,6 +416,7 @@ async def get_transaction_summary(
     ).filter(NormalizedTransaction.user_id == current_user.id)
 
     query = _exclude_demo(query)
+    query = _exclude_incoming_p2p(query)
 
     if start_date:
         query = query.filter(NormalizedTransaction.transaction_date >= start_date)
@@ -460,6 +476,7 @@ async def get_monthly_insights(
     )
 
     query = _exclude_demo(query)
+    query = _exclude_incoming_p2p(query)
 
     if category:
         query = query.filter(NormalizedTransaction.category == category)
@@ -511,6 +528,7 @@ async def get_yearly_insights(
     )
 
     query = _exclude_demo(query)
+    query = _exclude_incoming_p2p(query)
 
     if category:
         query = query.filter(NormalizedTransaction.category == category)
