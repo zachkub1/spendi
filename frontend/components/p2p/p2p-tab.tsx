@@ -433,6 +433,17 @@ function TransactionRow({
             <span className={`px-1.5 py-0.5 rounded font-medium ${sourceBadge}`}>
               {txn.p2p_source === "zelle" ? "Zelle" : "Venmo"}
             </span>
+            {txn.direction && (
+              <span className={`px-1.5 py-0.5 rounded font-medium ${
+                txn.direction === 'outgoing'
+                  ? 'bg-red-50 text-red-600'
+                  : txn.direction === 'incoming'
+                  ? 'bg-green-50 text-green-700'
+                  : 'bg-gray-100 text-gray-500'
+              }`}>
+                {txn.direction === 'outgoing' ? 'Sent' : txn.direction === 'incoming' ? 'Received' : 'Transfer'}
+              </span>
+            )}
             {isPartial && (
               <span className="px-1.5 py-0.5 rounded font-medium bg-amber-100 text-amber-700">
                 {fmt(txn.amount_remaining)} remaining
@@ -468,7 +479,9 @@ function TransactionRow({
 
         {/* Right: amount + actions */}
         <div className="flex flex-col items-end gap-2 shrink-0">
-          <p className="text-base font-bold text-green-700">+{fmt(txn.amount)}</p>
+          <p className={`text-base font-bold ${txn.direction === 'outgoing' ? 'text-red-600' : txn.direction === 'transfer' ? 'text-gray-600' : 'text-green-700'}`}>
+            {txn.direction === 'outgoing' ? '-' : txn.direction === 'transfer' ? '' : '+'}{fmt(txn.amount)}
+          </p>
 
           <div className="flex items-center gap-1.5">
             {/* Category dropdown */}
