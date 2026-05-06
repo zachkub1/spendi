@@ -12,10 +12,9 @@ env:
   ECR_FRONTEND_REPO: spendi-frontend
 
 permissions:
-  id-token: write        # AWS OIDC authentication
-  contents: read         # actions/checkout
-  security-events: write # CodeQL SARIF upload
-  actions: read          # CodeQL telemetry (workflow-run API)
+  contents: read         # actions/checkout (all jobs)
+  security-events: write # CodeQL SARIF upload (backend-ci)
+  actions: read          # CodeQL telemetry (backend-ci)
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
@@ -129,14 +128,31 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
 
+    permissions:
+      id-token: write  # OIDC token for AWS — scoped to this job only
+      contents: read   # actions/checkout
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Debug GitHub OIDC context
+        run: |
+          echo "Repository : $GITHUB_REPOSITORY"
+          echo "Ref        : $GITHUB_REF"
+          echo "Event      : $GITHUB_EVENT_NAME"
+          echo "Actor      : $GITHUB_ACTOR"
+          echo "Run ID     : $GITHUB_RUN_ID"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+          role-session-name: spendi-deploy-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
 
       - name: Login to Amazon ECR
         id: ecr-login
