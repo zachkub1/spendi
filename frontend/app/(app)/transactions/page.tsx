@@ -8,7 +8,7 @@ import { TransactionFilters } from '@/components/transactions/transaction-filter
 import { getCategoryMeta } from '@/lib/category-meta';
 import { P2PTab } from '@/components/p2p/p2p-tab';
 
-type ActiveTab = 'all' | 'zelle' | 'venmo';
+type ActiveTab = 'all' | 'zelle' | 'venmo' | 'cash';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -168,7 +168,7 @@ export default function TransactionsPage() {
 
         {/* ── Tab bar ───────────────────────────────────────────────────────── */}
         <div className="flex border-b border-slate-200 mb-6">
-          {(['all', 'zelle', 'venmo'] as ActiveTab[]).map((tab) => (
+          {(['all', 'zelle', 'venmo', 'cash'] as ActiveTab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -178,7 +178,13 @@ export default function TransactionsPage() {
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}
             >
-              {tab === 'all' ? 'All Transactions' : tab === 'zelle' ? 'Zelle' : 'Venmo'}
+              {tab === 'all'
+                ? 'All Transactions'
+                : tab === 'zelle'
+                ? 'Zelle'
+                : tab === 'venmo'
+                ? 'Venmo'
+                : 'Cash'}
             </button>
           ))}
         </div>
@@ -186,6 +192,7 @@ export default function TransactionsPage() {
         {/* ── P2P tabs ──────────────────────────────────────────────────────── */}
         {activeTab === 'zelle' && <P2PTab source="zelle" />}
         {activeTab === 'venmo' && <P2PTab source="venmo" />}
+        {activeTab === 'cash' && <P2PTab source="cash" />}
 
         {/* ── All Transactions tab ──────────────────────────────────────────── */}
         {activeTab === 'all' && <>

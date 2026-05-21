@@ -256,7 +256,7 @@ class NormalizedTransaction(Base):
     __tablename__ = "normalized_transactions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    parsed_transaction_id = Column(UUID(as_uuid=True), ForeignKey("parsed_transactions.id"), nullable=False, unique=True)
+    parsed_transaction_id = Column(UUID(as_uuid=True), ForeignKey("parsed_transactions.id"), nullable=True, unique=True)
     payment_instrument_id = Column(UUID(as_uuid=True), ForeignKey("payment_instruments.id"), nullable=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 

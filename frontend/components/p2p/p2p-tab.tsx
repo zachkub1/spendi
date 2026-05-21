@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api-client";
 import { MatchTransactionModal } from "./match-transaction-modal";
+import { AddCashTransactionModal } from "./add-cash-transaction-modal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ const fmtDate = (d: string) =>
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface P2PTabProps {
-  source: "zelle" | "venmo";
+  source: "zelle" | "venmo" | "cash";
 }
 
 export function P2PTab({ source }: P2PTabProps) {
@@ -83,6 +84,7 @@ export function P2PTab({ source }: P2PTabProps) {
 
   // UI state
   const [matchingTxn, setMatchingTxn] = useState<P2PTransaction | null>(null);
+  const [addingCash, setAddingCash] = useState(false);
   const [editingSenderTxnId, setEditingSenderTxnId] = useState<string | null>(null);
   const [senderDraft, setSenderDraft] = useState("");
   const [savingSender, setSavingSender] = useState(false);
@@ -176,9 +178,12 @@ export function P2PTab({ source }: P2PTabProps) {
   const sourceBadge =
     source === "zelle"
       ? "bg-purple-100 text-purple-700"
-      : "bg-blue-100 text-blue-700";
+      : source === "venmo"
+      ? "bg-blue-100 text-blue-700"
+      : "bg-emerald-100 text-emerald-700";
 
-  const sourceName = source === "zelle" ? "Zelle" : "Venmo";
+  const sourceName =
+    source === "zelle" ? "Zelle" : source === "venmo" ? "Venmo" : "Cash";
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -237,6 +242,16 @@ export function P2PTab({ source }: P2PTabProps) {
         >
           Refresh
         </button>
+
+        {/* Add cash transaction (cash tab only) */}
+        {source === "cash" && (
+          <button
+            onClick={() => setAddingCash(true)}
+            className="px-3 py-2 text-sm bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors"
+          >
+            + Add cash transaction
+          </button>
+        )}
       </div>
 
       {/* ── Error ───────────────────────────────────────────────────────── */}
@@ -259,7 +274,9 @@ export function P2PTab({ source }: P2PTabProps) {
             No {sourceName} transactions found for the selected time range.
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            Try a longer time range or trigger an email sync.
+            {source === "cash"
+              ? "Click “Add cash transaction” to record one."
+              : "Try a longer time range or trigger an email sync."}
           </p>
         </div>
       ) : (
@@ -275,6 +292,7 @@ export function P2PTab({ source }: P2PTabProps) {
                   <TransactionRow
                     key={txn.id}
                     txn={txn}
+                    source={source}
                     sourceBadge={sourceBadge}
                     sourceName={sourceName}
                     editingSenderTxnId={editingSenderTxnId}
@@ -306,6 +324,7 @@ export function P2PTab({ source }: P2PTabProps) {
                   <TransactionRow
                     key={txn.id}
                     txn={txn}
+                    source={source}
                     sourceBadge={sourceBadge}
                     sourceName={sourceName}
                     editingSenderTxnId={editingSenderTxnId}
@@ -341,6 +360,17 @@ export function P2PTab({ source }: P2PTabProps) {
           }}
         />
       )}
+
+      {/* ── Add cash modal ───────────────────────────────────────────────── */}
+      {addingCash && (
+        <AddCashTransactionModal
+          onClose={() => setAddingCash(false)}
+          onCreated={(txn) => {
+            setTransactions((prev) => [txn, ...prev]);
+            setAddingCash(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -349,6 +379,7 @@ export function P2PTab({ source }: P2PTabProps) {
 
 interface RowProps {
   txn: P2PTransaction;
+  source: "zelle" | "venmo" | "cash";
   sourceBadge: string;
   sourceName: string;
   editingSenderTxnId: string | null;
@@ -366,7 +397,7 @@ interface RowProps {
 }
 
 function TransactionRow({
-  txn, sourceBadge, editingSenderTxnId, senderDraft, setSenderDraft,
+  txn, source, sourceBadge, sourceName, editingSenderTxnId, senderDraft, setSenderDraft,
   savingSender, unmatchingId, typeChangeId,
   onEditSender, onSaveSender, onCancelEditSender, onMatch, onUnmatch, onTypeChange,
 }: RowProps) {
@@ -374,6 +405,8 @@ function TransactionRow({
   const remaining = parseFloat(txn.amount_remaining);
   const isPartial = hasMatches && remaining > 0;
   const displayName = txn.sender_name || txn.merchant_normalized;
+  // For cash, only reimbursements (incoming) are matchable. Spend = no match.
+  const matchAllowed = source !== "cash" || txn.direction === "incoming";
 
   return (
     <div className={`bg-white rounded-xl border p-4 ${hasMatches ? "border-green-200" : "border-gray-200"}`}>
@@ -431,7 +464,7 @@ function TransactionRow({
               <span className="font-mono text-gray-400">#{txn.p2p_transaction_id}</span>
             )}
             <span className={`px-1.5 py-0.5 rounded font-medium ${sourceBadge}`}>
-              {txn.p2p_source === "zelle" ? "Zelle" : "Venmo"}
+              {sourceName}
             </span>
             {txn.direction && (
               <span className={`px-1.5 py-0.5 rounded font-medium ${
@@ -441,7 +474,9 @@ function TransactionRow({
                   ? 'bg-green-50 text-green-700'
                   : 'bg-gray-100 text-gray-500'
               }`}>
-                {txn.direction === 'outgoing' ? 'Sent' : txn.direction === 'incoming' ? 'Received' : 'Transfer'}
+                {source === 'cash'
+                  ? (txn.direction === 'outgoing' ? 'Spend' : 'Reimbursement')
+                  : (txn.direction === 'outgoing' ? 'Sent' : txn.direction === 'incoming' ? 'Received' : 'Transfer')}
               </span>
             )}
             {isPartial && (
@@ -497,8 +532,9 @@ function TransactionRow({
               ))}
             </select>
 
-            {/* Match button visible whenever there's remaining balance */}
-            {remaining > 0 && (
+            {/* Match button: shown when there's remaining balance.
+                For cash, only reimbursements (incoming) are matchable — spend is not. */}
+            {remaining > 0 && matchAllowed && (
               <button
                 onClick={onMatch}
                 className="px-2.5 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"

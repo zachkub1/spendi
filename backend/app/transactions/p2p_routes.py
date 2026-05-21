@@ -12,8 +12,8 @@ from sqlalchemy import or_, exists
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from pydantic import BaseModel
-from uuid import UUID
+from pydantic import BaseModel, Field, field_validator
+from uuid import UUID, uuid4
 import logging
 
 from app.db.session import get_db
@@ -98,6 +98,26 @@ class TypeUpdateRequest(BaseModel):
         use_enum_values = True
 
 
+class CashTransactionRequest(BaseModel):
+    """Manual cash entry. `kind` determines money-flow direction."""
+    amount: Decimal = Field(..., gt=Decimal("0.00"), description="Positive amount")
+    transaction_date: datetime
+    description: str = Field(..., min_length=1, max_length=255)
+    kind: str  # "spend" | "reimbursement"
+    category: Optional[TransactionCategory] = None
+
+    @field_validator("kind")
+    @classmethod
+    def _validate_kind(cls, v: str) -> str:
+        v = v.lower().strip()
+        if v not in ("spend", "reimbursement"):
+            raise ValueError("kind must be 'spend' or 'reimbursement'")
+        return v
+
+    class Config:
+        use_enum_values = True
+
+
 # ========== Helpers ==========
 
 def _p2p_response(txn: NormalizedTransaction) -> dict:
@@ -140,7 +160,7 @@ def _get_p2p_txn(db: Session, txn_id: UUID, user_id) -> NormalizedTransaction:
 async def list_p2p_transactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    source: Optional[str] = Query(None, description="Filter by source: 'zelle' or 'venmo'"),
+    source: Optional[str] = Query(None, description="Filter by source: 'zelle', 'venmo', or 'cash'"),
     hours: Optional[int] = Query(24, description="Transactions within the last N hours (0 = all)"),
     search: Optional[str] = Query(None, description="Search by sender name, amount, or transaction ID"),
     unmatched_only: bool = Query(False, description="Only show transactions with no reimbursement links"),
@@ -398,6 +418,60 @@ async def unmatch_p2p_transaction(
 
     logger.info("[P2P] Unmatched link=%s from p2p_txn=%s user=%s", link_id, txn_id, current_user.id)
     return P2PTransactionResponse(**_p2p_response(p2p_txn))
+
+
+@router.post("/cash", response_model=P2PTransactionResponse, status_code=status.HTTP_201_CREATED)
+async def create_cash_transaction(
+    body: CashTransactionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Create a manual cash transaction.
+
+    - kind="spend"         → direction=outgoing, net_amount=amount (a paid-out expense)
+    - kind="reimbursement" → direction=incoming, net_amount=0      (incoming cash, matchable to an expense)
+
+    Cash transactions have no email origin, so parsed_transaction_id and
+    payment_instrument_id are NULL. p2p_source="cash" lets them surface in
+    the Cash tab via the existing list endpoint.
+    """
+    is_reimbursement = body.kind == "reimbursement"
+    direction = "incoming" if is_reimbursement else "outgoing"
+    category = body.category or (
+        TransactionCategory.TRANSFER if is_reimbursement else TransactionCategory.OTHER
+    )
+    net_amount = Decimal("0.00") if is_reimbursement else body.amount
+
+    txn = NormalizedTransaction(
+        parsed_transaction_id=None,
+        payment_instrument_id=None,
+        user_id=current_user.id,
+        merchant_normalized=body.description.strip(),
+        amount=body.amount,
+        currency="USD",
+        transaction_date=body.transaction_date.replace(tzinfo=None),
+        transaction_type="transfer" if is_reimbursement else "purchase",
+        category=category,
+        category_confidence=Decimal("100.0"),
+        category_source="user_override",
+        reimbursement_status=ReimbursementStatus.NONE,
+        reimbursed_amount=Decimal("0.00"),
+        net_amount=net_amount,
+        direction=direction,
+        sender_name=body.description.strip() if is_reimbursement else None,
+        p2p_transaction_id=f"cash_{uuid4().hex[:12]}",
+        p2p_source="cash",
+    )
+    db.add(txn)
+    db.commit()
+    db.refresh(txn)
+
+    logger.info(
+        "[P2P] Cash txn created: id=%s kind=%s amount=%s user=%s",
+        txn.id, body.kind, body.amount, current_user.id,
+    )
+    return P2PTransactionResponse(**_p2p_response(txn))
 
 
 @router.patch("/{txn_id}/type", response_model=P2PTransactionResponse)
