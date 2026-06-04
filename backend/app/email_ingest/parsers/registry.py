@@ -8,6 +8,7 @@ from .amex import AmexParser
 from .venmo import VenmoParser
 from .zelle import ZelleParser
 from .discover import DiscoverParser
+from .republictt import RepublicTTParser
 
 
 class ParserRegistry:
@@ -19,6 +20,7 @@ class ParserRegistry:
         VenmoParser(),
         ZelleParser(),
         DiscoverParser(),
+        RepublicTTParser(),
     ]
 
     @classmethod
@@ -58,4 +60,5 @@ class ParserRegistry:
             "discover.com",
             "services.discover.com",
             "discovercard.com",
+            "republictt.com",
         ]
