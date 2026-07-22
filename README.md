@@ -1,6 +1,6 @@
 # Spendi
 
-**Smart personal finance tracking — zero manual entry.**
+**Smart personal finance tracking, zero manual entry.**
 
 Spendi connects to your Gmail and automatically finds transaction confirmation emails from your bank and credit cards. Every purchase, transfer, and payment is parsed, categorized, and shown in a clean dashboard so you always know where your money is going.
 
